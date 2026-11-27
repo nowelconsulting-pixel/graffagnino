@@ -25,10 +25,29 @@ GA.mapView = (function () {
     }
   });
 
+  // Ajustements d'affichage appliqués depuis l'application, sans modifier le fichier verrouillé
+  // carte/carte.html (même origine : la page du cadre est accessible). Masque le titre de la carte.
+  function adjust() {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc || !doc.head || !doc.getElementById('side') || doc.URL === 'about:blank') return false;
+      if (doc.getElementById('ga-ajustements')) return true;
+      const st = doc.createElement('style');
+      st.id = 'ga-ajustements';
+      st.textContent = '#side header > h1{display:none}';
+      doc.head.appendChild(st);
+      return true;
+    } catch (e) { return true; /* cadre inaccessible : la carte s'affiche telle quelle */ }
+  }
+
   return {
     mount() {
       if (frame) return;
       frame = document.getElementById('mapframe');
+      // Appliqué dès que la page de la carte est construite, sans attendre le chargement des fonds de plan.
+      const poll = setInterval(() => { if (adjust()) clearInterval(poll); }, 50);
+      setTimeout(() => clearInterval(poll), 20000);
+      frame.addEventListener('load', adjust);
       // Version « fichier unique » : la carte est intégrée en base64 dans la page.
       const inline = document.getElementById('carte-inline');
       if (inline) {
