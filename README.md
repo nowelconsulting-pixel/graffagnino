@@ -1,46 +1,49 @@
-# GRAFFAGNINO · Prospection — maquette
+# GRAFFAGNINO · Prospection
 
-Maquette fonctionnelle de l'application de prospection : carte des 57 zones, CRM des emplacements, administration des utilisateurs.
+Application de prospection des emplacements : carte des 57 zones, CRM des emplacements, entreprises par zone, administration des utilisateurs.
 
-**Maquette :** connexion simulée, données fictives, stockage dans le navigateur. Aucune sécurité réelle.
+- **En ligne :** https://grafftothemoon.netlify.app (Netlify, mise en ligne automatique à chaque push sur `main`).
+- **Données et comptes :** Supabase (base PostgreSQL, Supabase Auth, règles de sécurité par ligne).
+- **Code :** HTML, CSS et JavaScript, sans compilation. supabase-js est inclus dans `js/vendor/`.
 
-## Ouvrir la maquette
+## Comptes
 
-Ouvrir `index.html` dans Chrome, Edge ou Firefox, ou utiliser `graffagnino-prospection.html`, la version en un seul fichier.
-Une connexion internet est nécessaire pour les fonds de carte et les couches en ligne de la carte.
+Les comptes se créent dans Supabase : **Authentication → Users → Add user → Create new user**, avec **Auto Confirm User**.
+Un profil « Utilisateur » est créé automatiquement ; un administrateur règle ensuite nom, fonction et rôle dans l'écran Administration.
+L'inscription libre est désactivée dans Supabase.
 
-| Compte de démonstration    | Mot de passe | Rôle           |
-|----------------------------|--------------|----------------|
-| admin@graffagnino.demo     | admin        | Administrateur |
-| camille@graffagnino.demo   | demo         | Utilisateur    |
-| julien@graffagnino.demo    | demo         | Utilisateur    |
+## Installation de la base (une seule fois)
 
-Les modifications sont conservées dans le navigateur (localStorage). Pour repartir des données d'origine : Administration → Réinitialiser la démonstration.
+Dans Supabase, **SQL Editor → New query**, coller le contenu de `supabase/schema.sql`, puis **Run**.
+Nommer ensuite le premier administrateur :
+
+```sql
+update public.profiles set role = 'admin' where email = 'email-de-l-administrateur@exemple.fr';
+```
 
 ## Structure
 
 ```
 index.html                    coquille de l'application (connexion + espaces)
-carte/carte.html              carte verrouillée, inchangée, avec un bloc de liaison ajouté à la fin
+carte/carte.html              carte verrouillée (empreinte dans carte/carte.sha256, vérifiée par Netlify et GitHub)
 css/app.css                   style
-js/config.js                  référentiels : statuts, types de propriétaire, types d'échange, rôles
+js/config.js                  adresse et clé publique Supabase, référentiels : statuts, types, rôles, activités
 js/data/zones.js              57 zones extraites de la carte (généré, lecture seule)
-js/data/demo-data.js          utilisateurs, fiches et échanges fictifs
-js/data/local-repository.js   données de démonstration (localStorage)
-js/data/supabase-repository.js  interface Supabase à implémenter (non chargée)
-js/data/repository.js         choix de la source de données (GA.config.dataSource)
-js/services/auth.js           connexion simulée (→ Supabase Auth)
+js/data/supabase-repository.js  accès aux données et à l'authentification Supabase
+js/data/repository.js         création du client Supabase (GA.repo)
+js/vendor/                    supabase-js (copie du paquet npm officiel, licence MIT)
+js/services/auth.js           connexion (Supabase Auth)
 js/services/permissions.js    droits administrateur / utilisateur
 js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
 js/services/entreprises.js    entreprises autour d'une zone (API Recherche d'entreprises)
 js/ui/*.js                    écrans : connexion, carte, CRM, fiche, administration
 js/app.js                     démarrage et navigation
-supabase/schema.sql           tables et règles de sécurité prévues (non exécuté)
+supabase/schema.sql           tables, déclencheurs et règles de sécurité de la base
 tools/make_zones.py           régénère js/data/zones.js depuis la carte
 tools/bundle.py               produit la version en un seul fichier
 ```
 
-L'interface n'accède aux données que par `GA.repo`. Toutes les fonctions sont asynchrones, comme le seront les appels Supabase.
+L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase de `js/config.js` est faite pour être visible : sans compte connecté et actif, les règles de sécurité de la base ne donnent accès à rien. La clé secrète (service_role) ne doit jamais apparaître dans le dépôt.
 
 ## Entreprises de la zone
 
@@ -52,11 +55,3 @@ Source : API publique [Recherche d'entreprises](https://recherche-entreprises.ap
 
 - **Administrateur :** tous les espaces, gestion des utilisateurs, toutes les fiches (modification, attribution, suppression).
 - **Utilisateur :** carte et CRM. Il voit toutes les fiches. Il modifie celles dont il est responsable et celles qui ne sont pas attribuées. Il crée des fiches, dont il devient responsable. Il ne supprime pas de fiche.
-
-## Passage à Supabase (étapes suivantes)
-
-1. Créer le projet Supabase et exécuter `supabase/schema.sql`.
-2. Ajouter supabase-js dans `index.html` et charger `js/data/supabase-repository.js`.
-3. Implémenter les fonctions de `supabase-repository.js`, qui gardent les mêmes noms et renvoient les mêmes champs.
-4. Remplacer `GA.auth` par Supabase Auth. La création des comptes passe par une fonction serveur, jamais par le navigateur.
-5. Passer `GA.config.dataSource` à `'supabase'`, puis supprimer `demo-data.js` et la réinitialisation de démonstration.

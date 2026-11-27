@@ -24,8 +24,7 @@ GA.adminView = (function () {
         </tr>`).join('')}</tbody></table></div>
       <div class="admin-foot">
         <div class="note">Les utilisateurs désactivés ne peuvent plus se connecter ; leurs fiches et leurs échanges sont conservés.
-        Dans la maquette, les mots de passe sont des mots de passe de démonstration stockés dans le navigateur. Avec Supabase, ils seront gérés par Supabase Auth et l’invitation se fera par email.</div>
-        <div class="danger-zone"><b>Données de démonstration</b><p>Restaure les fiches, échanges et utilisateurs d’origine. Toutes les modifications faites dans la maquette seront perdues.</p><button class="btn danger" id="reset-demo">Réinitialiser la démonstration</button></div>
+        Les comptes, emails et mots de passe sont gérés dans Supabase (Authentication → Users).</div>
       </div>`;
     $$('[data-edit]').forEach(b => b.addEventListener('click', () => edit(b.dataset.edit)));
     $$('[data-toggle]').forEach(b => b.addEventListener('click', async () => {
@@ -34,40 +33,44 @@ GA.adminView = (function () {
       await run(() => GA.svc.setUserActive(u.id, !u.actif), u.actif ? 'Compte désactivé' : 'Compte réactivé');
       await GA.app.reload();
     }));
-    $('#reset-demo').addEventListener('click', async () => {
-      if (!await confirmBox('Réinitialiser la démonstration', 'Toutes les modifications faites dans la maquette seront perdues.', 'Réinitialiser', true)) return;
-      await run(() => GA.svc.resetDemo(), 'Données de démonstration restaurées');
-      const still = await GA.auth.restore();
-      if (!still) { GA.app.logout(); return; }
-      await GA.app.reload();
-    });
+  }
+
+  // Création d'un compte : dans Supabase, la clé de service ne doit jamais être dans le navigateur.
+  function howToCreate() {
+    modal('Nouvel utilisateur', `
+      <ol class="steps">
+        <li>Ouvrez le tableau de bord Supabase du projet, menu <b>Authentication → Users</b>.</li>
+        <li>Cliquez sur <b>Add user → Create new user</b>, saisissez l’email et un mot de passe, cochez <b>Auto Confirm User</b>.</li>
+        <li>Revenez ici et rechargez la page : le compte apparaît avec le rôle Utilisateur. Cliquez sur <b>Modifier</b> pour indiquer son nom, sa fonction et son rôle.</li>
+      </ol>
+      <p class="hint">Communiquez le mot de passe à la personne par un autre canal que l’email.</p>
+      <div class="modal-actions"><button class="btn primary" data-close>Compris</button></div>`);
   }
 
   function edit(id) {
-    const u = id ? GA.store.users.find(x => x.id === id) : { nom: '', email: '', fonction: '', telephone: '', role: 'user' };
-    const m = modal(id ? 'Modifier l’utilisateur' : 'Nouvel utilisateur', `
+    const u = GA.store.users.find(x => x.id === id);
+    const m = modal('Modifier l’utilisateur', `
       <form id="u-form" novalidate>
         <label class="fld"><span>Nom complet *</span><input id="u-nom" value="${esc(u.nom)}" required></label>
-        <label class="fld"><span>Email *</span><input id="u-email" type="email" value="${esc(u.email)}" required></label>
+        <label class="fld"><span>Email de connexion</span><input id="u-email" type="email" value="${esc(u.email)}" disabled title="Modifiable dans Supabase (Authentication → Users)"></label>
         <div class="two"><label class="fld"><span>Fonction</span><input id="u-fct" value="${esc(u.fonction)}"></label>
         <label class="fld"><span>Téléphone</span><input id="u-tel" value="${esc(u.telephone)}"></label></div>
         <label class="fld"><span>Rôle</span><select id="u-role">${GA.ROLES.map(r => `<option value="${r.key}" ${r.key === u.role ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></label>
         <p class="hint">Administrateur : tous les espaces, gestion des utilisateurs et de toutes les fiches. Utilisateur : carte et CRM ; modifie ses fiches et les fiches non attribuées.</p>
-        <label class="fld"><span>Mot de passe de démonstration ${id ? '(laisser vide pour ne pas changer)' : '*'}</span><input id="u-pass" type="text" autocomplete="off"></label>
-        <div class="modal-actions"><button type="button" class="btn" data-close>Annuler</button><button class="btn primary" type="submit">${id ? 'Enregistrer' : 'Créer l’utilisateur'}</button></div>
+        <div class="modal-actions"><button type="button" class="btn" data-close>Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div>
       </form>`);
     $('#u-form', m.el).addEventListener('submit', async e => {
       e.preventDefault();
       const r = await run(() => GA.svc.saveUser(id, {
         nom: $('#u-nom', m.el).value, email: $('#u-email', m.el).value, fonction: $('#u-fct', m.el).value,
-        telephone: $('#u-tel', m.el).value, role: $('#u-role', m.el).value, password: $('#u-pass', m.el).value,
-      }), id ? 'Utilisateur modifié' : 'Utilisateur créé');
+        telephone: $('#u-tel', m.el).value, role: $('#u-role', m.el).value,
+      }), 'Utilisateur modifié');
       if (r) { m.close(); await GA.app.reload(); GA.app.renderUser(); }
     });
   }
 
   return {
-    init() { $('#admin-new').addEventListener('click', () => edit(null)); },
+    init() { $('#admin-new').addEventListener('click', howToCreate); },
     render,
   };
 })();

@@ -87,11 +87,7 @@ GA.svc = (function () {
       if (!d.nom) throw new Error('Le nom est obligatoire.');
       if (!EMAIL.test(d.email)) throw new Error('Adresse email invalide.');
       if (!GA.ROLES.some(r => r.key === d.role)) throw new Error('Rôle inconnu.');
-      if (data.password) d.password = data.password;
-      if (!id) {
-        if (!d.password) throw new Error('Définissez un mot de passe de démonstration.');
-        return GA.repo.createUser(d);
-      }
+      if (!id) return GA.repo.createUser(d);
       const users = await GA.repo.listUsers();
       const target = users.find(x => x.id === id);
       if (target.role === 'admin' && d.role !== 'admin' && users.filter(x => x.role === 'admin' && x.actif).length <= 1 && target.actif)
@@ -110,11 +106,6 @@ GA.svc = (function () {
       if (!actif && target.role === 'admin' && users.filter(x => x.role === 'admin' && x.actif).length <= 1)
         throw new Error('Il doit rester au moins un administrateur actif.');
       return GA.repo.updateUser(id, { actif });
-    },
-
-    async resetDemo() {
-      if (!GA.perm.isAdmin(me())) deny();
-      await GA.repo.resetDemo();
     },
   };
 })();

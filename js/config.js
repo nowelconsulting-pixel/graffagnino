@@ -3,11 +3,12 @@ window.GA = window.GA || {};
 
 GA.config = {
   appName: 'GRAFFAGNINO · Prospection',
-  // 'local' = données de démonstration dans le navigateur (localStorage).
-  // 'supabase' sera activé quand js/data/supabase-repository.js sera implémenté.
-  dataSource: 'local',
-  storageKey: 'ga.demo.v1',
-  sessionKey: 'ga.session.v1',
+  // Projet Supabase. La clé « publishable » est publique par nature : elle ne donne accès à rien
+  // sans compte connecté, grâce aux règles de sécurité de supabase/schema.sql.
+  // Ne jamais mettre ici la clé « secret » / service_role.
+  supabaseUrl: 'https://unbdwbqdivunpisxnesp.supabase.co',
+  supabaseKey: 'sb_publishable_y8j2LeoDIS2HemCqIC6auw_CitjxAEx',
+  sessionKey: 'ga.auth.v1',
   // API publique « Recherche d'entreprises » (data.gouv.fr) : sans clé, appelée depuis le navigateur.
   entreprisesApi: 'https://recherche-entreprises.api.gouv.fr',
 };

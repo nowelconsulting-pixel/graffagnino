@@ -2,9 +2,9 @@
 window.GA = window.GA || {};
 
 GA.repo = (function () {
-  if (GA.config.dataSource === 'supabase') {
-    if (!GA.createSupabaseRepository) throw new Error('Dépôt Supabase non chargé.');
-    return GA.createSupabaseRepository(/* client Supabase */);
-  }
-  return GA.createLocalRepository(GA.config.storageKey, GA.DEMO);
+  if (!window.supabase || !GA.createSupabaseRepository) throw new Error('Bibliothèque Supabase non chargée.');
+  const client = window.supabase.createClient(GA.config.supabaseUrl, GA.config.supabaseKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: GA.config.sessionKey },
+  });
+  return GA.createSupabaseRepository(client);
 })();

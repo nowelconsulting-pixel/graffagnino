@@ -3,11 +3,6 @@ window.GA = window.GA || {};
 
 GA.loginView = (function () {
   const { $, esc } = GA.ui;
-  const DEMO = [
-    ['admin@graffagnino.demo', 'admin', 'Administrateur'],
-    ['camille@graffagnino.demo', 'demo', 'Utilisateur'],
-    ['julien@graffagnino.demo', 'demo', 'Utilisateur'],
-  ];
 
   function render() {
     const el = $('#login');
@@ -20,18 +15,13 @@ GA.loginView = (function () {
         <div class="lg-err" id="lg-err" role="alert"></div>
         <button class="btn primary block" type="submit">Se connecter</button>
       </form>
-      <div class="demo-box">
-        <b>Maquette : connexion simulée</b>
-        <p>Cette connexion ne protège rien : les comptes de démonstration sont inscrits dans le code. La vraie authentification viendra avec Supabase.</p>
-        <div class="demo-list">${DEMO.map(d => `<button type="button" class="demo-acc" data-e="${esc(d[0])}" data-p="${esc(d[1])}"><span>${esc(d[0])}</span><small>${esc(d[2])} · mot de passe « ${esc(d[1])} »</small></button>`).join('')}</div>
-      </div>
+      <p class="hint lg-hint">Accès réservé à l’équipe. Compte ou mot de passe oublié : contactez l’administrateur.</p>
     </div>`;
-    el.querySelectorAll('.demo-acc').forEach(b => b.addEventListener('click', () => {
-      $('#lg-email').value = b.dataset.e; $('#lg-pass').value = b.dataset.p; $('#lg-pass').focus();
-    }));
     $('#login-form').addEventListener('submit', async e => {
       e.preventDefault();
+      const btn = $('#login-form button[type=submit]'); btn.disabled = true; btn.textContent = 'Connexion…';
       const r = await GA.auth.signIn($('#lg-email').value, $('#lg-pass').value);
+      btn.disabled = false; btn.textContent = 'Se connecter';
       if (r.error) { $('#lg-err').textContent = r.error; return; }
       $('#lg-err').textContent = '';
       GA.app.enter();

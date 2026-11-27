@@ -21,7 +21,6 @@
       <a href="#admin" data-route="admin" hidden>Administration</a>
     </nav>
     <span class="grow"></span>
-    <span class="demo-tag" title="Connexion simulée, données fictives, stockées dans ce navigateur">Maquette · données fictives</span>
     <div class="user-box" id="user-box"></div>
   </header>
   <div class="persist-warn" id="persist-warn" hidden>Le navigateur refuse le stockage local : les modifications seront perdues au rechargement.</div>
@@ -59,9 +58,8 @@
 <!-- Configuration et données -->
 <script src="js/config.js"></script>
 <script src="js/data/zones.js"></script>
-<script src="js/data/demo-data.js"></script>
-<script src="js/data/local-repository.js"></script>
-<!-- Plus tard : charger js/data/supabase-repository.js ici (voir README) -->
+<script src="js/vendor/supabase-js-2.118.0.js"></script>
+<script src="js/data/supabase-repository.js"></script>
 <script src="js/data/repository.js"></script>
 <!-- Logique métier -->
 <script src="js/services/auth.js"></script>

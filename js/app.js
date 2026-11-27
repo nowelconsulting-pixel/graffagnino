@@ -70,6 +70,8 @@ GA.app = (function () {
     $$('.nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.route); }));
     window.addEventListener('hashchange', onHash);
     if (!GA.repo.isPersistent()) $('#persist-warn').hidden = false;
+    // Session terminée ailleurs (expiration, déconnexion dans un autre onglet) : retour à la connexion.
+    GA.repo.onSignedOut(() => { if (GA.auth.current()) logout(); });
     const u = await GA.auth.restore();
     if (u) await enter(); else logout();
   }
