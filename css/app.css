@@ -128,7 +128,7 @@ tr.inactive td{color:var(--grey)}
 
 /* Panneau fiche */
 .panel{position:fixed;top:var(--top);right:0;bottom:0;width:var(--panel);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 24px #1d24300f;z-index:15;display:flex;flex-direction:column}
-.panel-top{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.panel-top{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .panel-body{overflow-y:auto;padding:18px 28px 40px;flex:1}
 .title-input{width:100%;border:0;font-size:24px;font-weight:700;line-height:1.25;resize:none;padding:2px 0;outline:none;overflow:hidden;background:transparent}
 .title-input:focus{background:var(--soft);border-radius:4px}

@@ -136,7 +136,7 @@ tr.inactive td{color:var(--grey)}
 
 /* Panneau fiche */
 .panel{position:fixed;top:var(--top);right:0;bottom:0;width:var(--panel);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 24px #1d24300f;z-index:15;display:flex;flex-direction:column}
-.panel-top{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.panel-top{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .panel-body{overflow-y:auto;padding:18px 28px 40px;flex:1}
 .title-input{width:100%;border:0;font-size:24px;font-weight:700;line-height:1.25;resize:none;padding:2px 0;outline:none;overflow:hidden;background:transparent}
 .title-input:focus{background:var(--soft);border-radius:4px}
@@ -768,7 +768,7 @@ GA.auth = (function () {
    Administrateur : tout, y compris utilisateurs, suppression et attribution des fiches.
    Utilisateur    : voit la carte et toutes les fiches ;
                     modifie les fiches dont il est responsable et les fiches non attribuées ;
-                    crée des fiches (il en devient responsable) ; ne supprime pas ;
+                    crée des fiches (il en devient responsable) ; supprime les fiches dont il est responsable ;
                     n'attribue pas une fiche à quelqu'un d'autre. */
 window.GA = window.GA || {};
 
@@ -777,7 +777,7 @@ GA.perm = {
   canAccessAdmin: u => GA.perm.isAdmin(u),
   canCreateProspect: u => !!u,
   canEditProspect: (u, p) => !!u && (GA.perm.isAdmin(u) || !p.responsable_id || p.responsable_id === u.id),
-  canDeleteProspect: u => GA.perm.isAdmin(u),
+  canDeleteProspect: (u, p) => !!u && (GA.perm.isAdmin(u) || (!!p && p.responsable_id === u.id)),
   canAssignOthers: u => GA.perm.isAdmin(u),
   canDeleteExchange: (u, p, e) => !!u && (GA.perm.isAdmin(u) || (e.auteur_id === u.id && GA.perm.canEditProspect(u, p))),
 };
@@ -843,7 +843,8 @@ GA.svc = (function () {
     changeStatus(id, statut) { return this.updateProspect(id, { statut }); },
 
     async deleteProspect(id) {
-      if (!GA.perm.canDeleteProspect(me())) deny();
+      const p = await GA.repo.getProspect(id);
+      if (!p || !GA.perm.canDeleteProspect(me(), p)) deny();
       return GA.repo.deleteProspect(id);
     },
 
@@ -1977,7 +1978,7 @@ GA.panel = (function () {
       ${ed ? '<button class="btn ghost" data-visite title="Compte rendu de visite avec photos et position">Visite</button>' : ''}
       <button class="btn ghost" data-foncier title="Parcelle cadastrale et propriétaire (sociétés, collectivités)">Propriétaire</button>
       ${z ? '<button class="btn ghost" data-ent title="Établissements autour de la zone, avec SIREN">Entreprises</button><button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
-      ${GA.perm.canDeleteProspect(me) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
+      ${GA.perm.canDeleteProspect(me, p) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
       <button class="icon-btn" data-x title="Fermer (Échap)" aria-label="Fermer">✕</button>
     </div>
     <div class="panel-body">

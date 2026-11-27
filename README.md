@@ -16,7 +16,7 @@ L'inscription libre est désactivée dans Supabase.
 
 Dans Supabase, **SQL Editor → New query**, coller le contenu de `supabase/schema.sql`, puis **Run**.
 Puis exécuter de la même façon `supabase/002_documents_visites.sql` (photos, documents, position GPS des visites)
-`supabase/003_position_fiches.sql` (position des fiches sur la carte) et `supabase/004_moteur.sql` (score des emplacements, réglages du moteur).
+`supabase/003_position_fiches.sql` (position des fiches sur la carte) et `supabase/004_moteur.sql` (score des emplacements, réglages du moteur) et `supabase/005_suppression_fiches.sql` (suppression par le responsable de la fiche).
 Nommer ensuite le premier administrateur :
 
 ```sql
@@ -117,4 +117,4 @@ Source : API publique [Recherche d'entreprises](https://recherche-entreprises.ap
 ## Droits
 
 - **Administrateur :** tous les espaces, gestion des utilisateurs, toutes les fiches (modification, attribution, suppression).
-- **Utilisateur :** carte et CRM. Il voit toutes les fiches. Il modifie celles dont il est responsable et celles qui ne sont pas attribuées. Il crée des fiches, dont il devient responsable. Il ne supprime pas de fiche.
+- **Utilisateur :** carte et CRM. Il voit toutes les fiches. Il modifie celles dont il est responsable et celles qui ne sont pas attribuées. Il crée des fiches, dont il devient responsable, et supprime les fiches dont il est responsable.

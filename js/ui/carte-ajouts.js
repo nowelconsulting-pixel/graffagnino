@@ -167,8 +167,16 @@
       const f = p.analyse && GA.moteur ? GA.moteur.scoreFinal(p.analyse, p) : null;
       mk.bindPopup(`<div class="ga-pop"><b>${esc(p.nom)}</b><div class="muted">${esc(s.label)}${p.zone_id ? ' · zone ' + esc(p.zone_id) : ''}${p.commune ? ' · ' + esc(p.commune) : ''}</div>
         ${f ? `<div style="margin-top:4px">Score <b>${f.total}</b>/100 · priorité ${f.priorite}</div>` : ''}
-        ${p.prochaine_action ? `<div style="margin-top:4px">${esc(p.prochaine_action)}</div>` : ''}<button type="button" data-open>Ouvrir la fiche</button></div>`);
-      mk.on('popupopen', () => { const b = mk.getPopup().getElement().querySelector('[data-open]'); if (b) b.onclick = () => GA.app.openProspect(p.id); });
+        ${p.prochaine_action ? `<div style="margin-top:4px">${esc(p.prochaine_action)}</div>` : ''}<button type="button" data-open>Ouvrir la fiche</button>
+        ${GA.perm.canDeleteProspect(GA.auth.current(), p) ? ' <button type="button" class="sec" data-del style="color:#c92a2a">Supprimer</button>' : ''}</div>`);
+      mk.on('popupopen', () => {
+        const el = mk.getPopup().getElement();
+        const b = el.querySelector('[data-open]'); if (b) b.onclick = () => GA.app.openProspect(p.id);
+        const d = el.querySelector('[data-del]'); if (d) d.onclick = async () => {
+          if (!await GA.ui.confirmBox('Supprimer la fiche', `Supprimer « ${p.nom} » et son historique ? Cette action est définitive.`, 'Supprimer', true)) return;
+          if (await GA.ui.run(() => GA.svc.deleteProspect(p.id).then(() => true), 'Fiche supprimée')) { map.closePopup(); await GA.app.reload(); }
+        };
+      });
     });
   }
   window.__gaFiches = { refresh, focus(p) { if (p.lat != null) { map.flyTo([p.lat, p.lon], 17, { duration: 0.6 }); } } };

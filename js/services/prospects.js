@@ -56,7 +56,8 @@ GA.svc = (function () {
     changeStatus(id, statut) { return this.updateProspect(id, { statut }); },
 
     async deleteProspect(id) {
-      if (!GA.perm.canDeleteProspect(me())) deny();
+      const p = await GA.repo.getProspect(id);
+      if (!p || !GA.perm.canDeleteProspect(me(), p)) deny();
       return GA.repo.deleteProspect(id);
     },
 

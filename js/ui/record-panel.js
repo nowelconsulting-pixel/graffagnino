@@ -54,7 +54,7 @@ GA.panel = (function () {
       ${ed ? '<button class="btn ghost" data-visite title="Compte rendu de visite avec photos et position">Visite</button>' : ''}
       <button class="btn ghost" data-foncier title="Parcelle cadastrale et propriétaire (sociétés, collectivités)">Propriétaire</button>
       ${z ? '<button class="btn ghost" data-ent title="Établissements autour de la zone, avec SIREN">Entreprises</button><button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
-      ${GA.perm.canDeleteProspect(me) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
+      ${GA.perm.canDeleteProspect(me, p) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
       <button class="icon-btn" data-x title="Fermer (Échap)" aria-label="Fermer">✕</button>
     </div>
     <div class="panel-body">
