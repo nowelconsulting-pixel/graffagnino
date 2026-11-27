@@ -2,7 +2,7 @@
 window.GA = window.GA || {};
 
 GA.config = {
-  appName: 'GRAFFAGNINO · Prospection',
+  appName: 'GRAFFAGNINO - To the Moon',
   // Projet Supabase. La clé « publishable » est publique par nature : elle ne donne accès à rien
   // sans compte connecté, grâce aux règles de sécurité de supabase/schema.sql.
   // Ne jamais mettre ici la clé « secret » / service_role.
