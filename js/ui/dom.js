@@ -52,7 +52,7 @@ GA.ui = (function () {
     const root = $('#modal-root');
     const wrap = document.createElement('div');
     wrap.className = 'modal-wrap';
-    wrap.innerHTML = `<div class="modal ${opts.wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    wrap.innerHTML = `<div class="modal ${opts.wide ? 'wide' : ''} ${opts.cls || ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
       <div class="modal-h"><h3>${esc(title)}</h3><button class="icon-btn" data-close aria-label="Fermer">✕</button></div>
       <div class="modal-b">${body}</div></div>`;
     root.appendChild(wrap);

@@ -8,6 +8,8 @@ GA.config = {
   dataSource: 'local',
   storageKey: 'ga.demo.v1',
   sessionKey: 'ga.session.v1',
+  // API publique « Recherche d'entreprises » (data.gouv.fr) : sans clé, appelée depuis le navigateur.
+  entreprisesApi: 'https://recherche-entreprises.api.gouv.fr',
 };
 
 GA.STATUTS = [
@@ -43,4 +45,23 @@ GA.ROLES = [
 GA.ZONE_TYPES = {
   commerce: 'Zone commerciale', activite: "Zone d'activités", gare: 'Gare',
   axe: 'Axe routier / station-service', proximite: 'Centre / commerces de proximité', loisirs: 'Santé, loisirs, hôtel',
+};
+
+// Sections de la nomenclature d'activités (NAF rév. 2), pour l'onglet Entreprises.
+GA.NAF_SECTIONS = {
+  A: 'Agriculture, sylviculture, pêche', B: 'Industries extractives', C: 'Industrie manufacturière',
+  D: 'Électricité, gaz, vapeur', E: 'Eau, assainissement, déchets', F: 'Construction',
+  G: 'Commerce, réparation automobile', H: 'Transports et entreposage', I: 'Hébergement et restauration',
+  J: 'Information et communication', K: 'Finance et assurance', L: 'Activités immobilières (SCI, foncières…)',
+  M: 'Activités spécialisées, scientifiques, techniques', N: 'Services administratifs et de soutien',
+  O: 'Administration publique', P: 'Enseignement', Q: 'Santé et action sociale',
+  R: 'Arts, spectacles, loisirs', S: 'Autres services', T: 'Ménages employeurs', U: 'Organismes extraterritoriaux',
+};
+
+// Tranches d'effectif salarié (codes INSEE).
+GA.TRANCHES_EFFECTIF = {
+  NN: 'non employeur', '00': '0 salarié', '01': '1–2 salariés', '02': '3–5 salariés', '03': '6–9 salariés',
+  11: '10–19 salariés', 12: '20–49 salariés', 21: '50–99 salariés', 22: '100–199 salariés', 31: '200–249 salariés',
+  32: '250–499 salariés', 41: '500–999 salariés', 42: '1 000–1 999 salariés', 51: '2 000–4 999 salariés',
+  52: '5 000–9 999 salariés', 53: '10 000 salariés et plus',
 };

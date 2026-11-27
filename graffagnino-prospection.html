@@ -197,6 +197,31 @@ tr.inactive td{color:var(--grey)}
 .toast.err{background:#9b1c1c}
 .toast.out{opacity:0}
 
+/* Entreprises de la zone */
+.modal.xl{width:min(980px,100%);height:min(88vh,900px);display:flex;flex-direction:column}
+.modal.xl .modal-b{flex:1;min-height:0;display:flex;flex-direction:column}
+.ent-zone{margin-bottom:10px}
+.ent-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.ent-tools select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;min-height:34px;max-width:260px}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--mute);cursor:pointer}
+.ent-status{font-size:12.5px;color:var(--mute);min-height:20px;margin-bottom:6px}
+.ent-list{flex:1;min-height:120px;overflow-y:auto;border-top:1px solid var(--line)}
+.ent-row{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:12px;align-items:center;padding:9px 4px;border-bottom:1px solid #eef0f2}
+.ent-row:hover{background:var(--soft)}
+.ent-row.closed{opacity:.6}
+.ent-t{line-height:1.3}
+.ent-s{font-size:12.5px;margin-top:2px;overflow-wrap:anywhere}
+.ent-d{text-align:right;font-size:12.5px;color:var(--mute);white-space:nowrap}
+.ent-a{display:flex;gap:6px;justify-content:flex-end}
+.ent-a a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:600}
+.ent-src{margin:10px 0 0}
+.np-ent{display:block;margin-top:6px;padding:0}
+@media (max-width:700px){
+  .ent-row{grid-template-columns:minmax(0,1fr) auto}
+  .ent-a{grid-column:1/-1;justify-content:flex-start}
+}
+
 /* Petits écrans */
 @media (max-width:900px){
   body.panel-open .page{padding-right:24px}
@@ -281,6 +306,8 @@ GA.config = {
   dataSource: 'local',
   storageKey: 'ga.demo.v1',
   sessionKey: 'ga.session.v1',
+  // API publique « Recherche d'entreprises » (data.gouv.fr) : sans clé, appelée depuis le navigateur.
+  entreprisesApi: 'https://recherche-entreprises.api.gouv.fr',
 };
 
 GA.STATUTS = [
@@ -316,6 +343,25 @@ GA.ROLES = [
 GA.ZONE_TYPES = {
   commerce: 'Zone commerciale', activite: "Zone d'activités", gare: 'Gare',
   axe: 'Axe routier / station-service', proximite: 'Centre / commerces de proximité', loisirs: 'Santé, loisirs, hôtel',
+};
+
+// Sections de la nomenclature d'activités (NAF rév. 2), pour l'onglet Entreprises.
+GA.NAF_SECTIONS = {
+  A: 'Agriculture, sylviculture, pêche', B: 'Industries extractives', C: 'Industrie manufacturière',
+  D: 'Électricité, gaz, vapeur', E: 'Eau, assainissement, déchets', F: 'Construction',
+  G: 'Commerce, réparation automobile', H: 'Transports et entreposage', I: 'Hébergement et restauration',
+  J: 'Information et communication', K: 'Finance et assurance', L: 'Activités immobilières (SCI, foncières…)',
+  M: 'Activités spécialisées, scientifiques, techniques', N: 'Services administratifs et de soutien',
+  O: 'Administration publique', P: 'Enseignement', Q: 'Santé et action sociale',
+  R: 'Arts, spectacles, loisirs', S: 'Autres services', T: 'Ménages employeurs', U: 'Organismes extraterritoriaux',
+};
+
+// Tranches d'effectif salarié (codes INSEE).
+GA.TRANCHES_EFFECTIF = {
+  NN: 'non employeur', '00': '0 salarié', '01': '1–2 salariés', '02': '3–5 salariés', '03': '6–9 salariés',
+  11: '10–19 salariés', 12: '20–49 salariés', 21: '50–99 salariés', 22: '100–199 salariés', 31: '200–249 salariés',
+  32: '250–499 salariés', 41: '500–999 salariés', 42: '1 000–1 999 salariés', 51: '2 000–4 999 salariés',
+  52: '5 000–9 999 salariés', 53: '10 000 salariés et plus',
 };
 
 </script>
@@ -706,6 +752,141 @@ GA.svc = (function () {
 })();
 
 </script>
+<script>
+/* js/services/entreprises.js */
+/* Entreprises autour d'une zone : API publique « Recherche d'entreprises » (data.gouv.fr).
+   Gratuite, sans clé, appelée directement depuis le navigateur. Limite : 7 requêtes par seconde.
+   Documentation : https://recherche-entreprises.api.gouv.fr/docs/ */
+window.GA = window.GA || {};
+
+GA.entreprises = (function () {
+  const API = GA.config.entreprisesApi;
+  const PER_PAGE = 25;
+  const MAX_PAGES = 20;          // au plus 500 entreprises par recherche
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+
+  function distanceM(lat1, lon1, lat2, lon2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const a = Math.sin((lat2 - lat1) * rad / 2) ** 2 +
+      Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lon2 - lon1) * rad / 2) ** 2;
+    return Math.round(2 * R * Math.asin(Math.sqrt(a)));
+  }
+
+  // « VILLAINES-SOUS-BOIS » → « Villaines-sous-Bois »
+  const PETITS = ['de', 'du', 'des', 'la', 'le', 'les', 'en', 'sous', 'sur', 'lès', 'les', 'aux', 'au', 'et'];
+  function communeLabel(s) {
+    return String(s || '').toLowerCase().replace(/[a-zà-ÿ]+/g, (w, i) => (i > 0 && PETITS.includes(w)) ? w : w[0].toUpperCase() + w.slice(1));
+  }
+
+  function personne(d) {
+    if (!d) return null;
+    if (d.type_dirigeant === 'personne morale') return { nom: d.denomination || '', qualite: d.qualite || '' };
+    const prenom = String(d.prenoms || '').split(/\s+/)[0];
+    const nom = [communeLabel(prenom), d.nom].filter(Boolean).join(' ');
+    return { nom, qualite: d.qualite || '' };
+  }
+  // Dirigeant le plus utile pour la prospection : une personne physique d'abord, hors commissaires aux comptes.
+  function dirigeantPrincipal(list) {
+    const l = (list || []).filter(d => !/commissaire/i.test(d.qualite || ''));
+    return personne(l.find(d => d.type_dirigeant === 'personne physique') || l[0]);
+  }
+
+  // « COURTOISE MOTORS (COURTOISE MOTORS) » → « COURTOISE MOTORS »
+  function nomEntreprise(r) {
+    const n = r.nom_complet || r.nom_raison_sociale || '';
+    const m = n.match(/^(.*) \((.*)\)$/);
+    return m && m[1].trim() === m[2].trim() ? m[1].trim() : n;
+  }
+
+  // Une ligne par établissement situé dans le rayon (une entreprise peut en avoir plusieurs).
+  function toRows(results, zone) {
+    const rows = [];
+    for (const r of results || []) {
+      const etabs = (r.matching_etablissements && r.matching_etablissements.length) ? r.matching_etablissements : [r.siege || {}];
+      for (const e of etabs) {
+        const lat = parseFloat(e.latitude), lon = parseFloat(e.longitude);
+        const enseigne = (e.liste_enseignes && e.liste_enseignes[0]) || e.nom_commercial || '';
+        rows.push({
+          siren: r.siren || '',
+          siret: e.siret || '',
+          raison_sociale: nomEntreprise(r),
+          enseigne,
+          naf: e.activite_principale || r.activite_principale || '',
+          section: r.section_activite_principale || '',
+          adresse: e.adresse || '',
+          commune: communeLabel(e.libelle_commune),
+          effectif: e.tranche_effectif_salarie || r.tranche_effectif_salarie || '',
+          siege: !!e.est_siege,
+          actif: (e.etat_administratif || r.etat_administratif) === 'A',
+          dirigeant: dirigeantPrincipal(r.dirigeants),
+          distance: isFinite(lat) && isFinite(lon) ? distanceM(zone.lat, zone.lon, lat, lon) : null,
+        });
+      }
+    }
+    return rows;
+  }
+
+  async function getPage(params, page, signal) {
+    const q = new URLSearchParams({ ...params, page: String(page), per_page: String(PER_PAGE) });
+    for (let essai = 0; essai < 3; essai++) {
+      let res;
+      try { res = await fetch(API + '/near_point?' + q, { signal }); }
+      catch (e) { if (signal && signal.aborted) throw e; await pause(800 * (essai + 1)); continue; }
+      if (res.status === 429 || res.status >= 500) { await pause(1200 * (essai + 1)); continue; }
+      if (!res.ok) throw new Error('Recherche d’entreprises indisponible (erreur ' + res.status + ').');
+      return res.json();
+    }
+    throw new Error('Le service Recherche d’entreprises ne répond pas. Réessayez dans un instant.');
+  }
+
+  /* Charge toutes les pages l'une après l'autre et appelle onProgress à chaque page.
+     opts : { radiusKm, section, signal, onProgress({ rows, page, totalPages, total }) } */
+  async function near(zone, opts) {
+    const params = { lat: String(zone.lat), long: String(zone.lon), radius: String(opts.radiusKm) };
+    if (opts.section) params.section_activite_principale = opts.section;
+    let rows = [], page = 1, totalPages = 1, total = 0;
+    do {
+      const d = await getPage(params, page, opts.signal);
+      totalPages = Math.min(d.total_pages || 1, MAX_PAGES);
+      total = d.total_results || 0;
+      rows = rows.concat(toRows(d.results, zone));
+      if (opts.onProgress) opts.onProgress({ rows, page, totalPages, total });
+      page++;
+      if (page <= totalPages) await pause(200);
+    } while (page <= totalPages && !(opts.signal && opts.signal.aborted));
+    return { rows, total, truncated: total > MAX_PAGES * PER_PAGE };
+  }
+
+  const ficheUrl = row => /^\d{14}$/.test(row.siret)
+    ? 'https://annuaire-entreprises.data.gouv.fr/etablissement/' + row.siret
+    : 'https://annuaire-entreprises.data.gouv.fr/entreprise/' + row.siren;
+
+  // Champs d'une nouvelle fiche CRM pré-remplie depuis un établissement.
+  function toProspect(row, zone) {
+    const naf = row.naf ? row.naf + (GA.NAF_SECTIONS[row.section] ? ' (' + GA.NAF_SECTIONS[row.section] + ')' : '') : '';
+    const notes = [
+      'SIREN ' + row.siren + (row.siret ? ' · SIRET ' + row.siret : ''),
+      row.raison_sociale && row.enseigne ? 'Raison sociale : ' + row.raison_sociale : '',
+      naf ? 'Activité : ' + naf : '',
+      row.effectif && GA.TRANCHES_EFFECTIF[row.effectif] ? 'Effectif : ' + GA.TRANCHES_EFFECTIF[row.effectif] : '',
+      'Source : Annuaire des entreprises, ' + GA.svc.today() + ' — ' + ficheUrl(row),
+    ].filter(Boolean).join('\n');
+    return {
+      nom: row.enseigne || row.raison_sociale,
+      zone_id: zone.id,
+      adresse: row.adresse,
+      commune: row.commune,
+      proprietaire_nom: row.raison_sociale,
+      decideur_nom: row.dirigeant ? row.dirigeant.nom : '',
+      decideur_fonction: row.dirigeant ? row.dirigeant.qualite : '',
+      notes,
+    };
+  }
+
+  return { near, toProspect, ficheUrl, distanceM };
+})();
+
+</script>
 <!-- Interface -->
 <script>
 /* js/ui/dom.js */
@@ -763,7 +944,7 @@ GA.ui = (function () {
     const root = $('#modal-root');
     const wrap = document.createElement('div');
     wrap.className = 'modal-wrap';
-    wrap.innerHTML = `<div class="modal ${opts.wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    wrap.innerHTML = `<div class="modal ${opts.wide ? 'wide' : ''} ${opts.cls || ''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
       <div class="modal-h"><h3>${esc(title)}</h3><button class="icon-btn" data-close aria-label="Fermer">✕</button></div>
       <div class="modal-b">${body}</div></div>`;
     root.appendChild(wrap);
@@ -941,11 +1122,13 @@ GA.crmView = (function () {
       <select id="crm-statut" aria-label="Statut"><option value="">Tous les statuts</option>${GA.STATUTS.map(s => `<option value="${s.key}" ${st.statut === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
       <select id="crm-resp" aria-label="Responsable"><option value="">Tous les responsables</option><option value="__me" ${st.resp === '__me' ? 'selected' : ''}>Mes dossiers</option><option value="__none" ${st.resp === '__none' ? 'selected' : ''}>Non attribuées</option>${users().map(u => `<option value="${u.id}" ${st.resp === u.id ? 'selected' : ''}>${esc(u.nom)}</option>`).join('')}</select>
       <select id="crm-zone" aria-label="Zone"><option value="">Toutes les zones</option>${usedZones.map(z => { const zz = GA.svc.zone(z); return `<option value="${z}" ${st.zone === z ? 'selected' : ''}>${z}${zz ? ' — ' + esc(zz.com) : ''}</option>`; }).join('')}</select>
+      ${st.zone && GA.svc.zone(st.zone) ? '<button class="btn" id="crm-ent" title="Établissements autour de la zone, avec SIREN">Entreprises de la zone ' + esc(st.zone) + '</button>' : ''}
       ${(st.q || st.statut || st.resp || st.zone) ? '<button class="link" id="crm-clear">Effacer les filtres</button>' : ''}`;
     $('#crm-q').addEventListener('input', e => { st.q = e.target.value; renderBody(); });
     $('#crm-statut').addEventListener('change', e => { st.statut = e.target.value; render(); });
     $('#crm-resp').addEventListener('change', e => { st.resp = e.target.value; render(); });
     $('#crm-zone').addEventListener('change', e => { st.zone = e.target.value; render(); });
+    const ent = $('#crm-ent'); if (ent) ent.addEventListener('click', () => GA.entreprisesView.open(st.zone));
     const c = $('#crm-clear'); if (c) c.addEventListener('click', () => { st.q = st.statut = st.resp = st.zone = ''; render(); });
   }
 
@@ -1056,7 +1239,11 @@ GA.crmView = (function () {
         <div class="modal-actions"><button type="button" class="btn" data-close>Annuler</button><button class="btn primary" type="submit">Créer et ouvrir</button></div>
       </form>`);
     const zsel = $('#np-zone', m.el), com = $('#np-com', m.el);
-    const upd = () => { const z = GA.svc.zone(zsel.value); com.value = z ? z.com : com.value; $('#np-zinfo', m.el).innerHTML = z ? GA.panel.zoneSummary(z) : ''; };
+    const upd = () => {
+      const z = GA.svc.zone(zsel.value); com.value = z ? z.com : com.value;
+      $('#np-zinfo', m.el).innerHTML = z ? GA.panel.zoneSummary(z) + '<button type="button" class="link np-ent" id="np-ent">Choisir parmi les entreprises de la zone (SIREN) →</button>' : '';
+      const b = $('#np-ent', m.el); if (b) b.addEventListener('click', () => { m.close(); GA.entreprisesView.open(z.id); });
+    };
     zsel.addEventListener('change', upd); upd();
     $('#np-form', m.el).addEventListener('submit', async e => {
       e.preventDefault();
@@ -1134,7 +1321,7 @@ GA.panel = (function () {
       <button class="icon-btn" data-nav="1" ${i < 0 || i >= ids.length - 1 ? 'disabled' : ''} title="Fiche suivante (J)" aria-label="Fiche suivante">↓</button>
       <span class="muted small">${i >= 0 ? (i + 1) + ' / ' + ids.length : ''}</span>
       <span class="grow"></span>
-      ${z ? '<button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
+      ${z ? '<button class="btn ghost" data-ent title="Établissements autour de la zone, avec SIREN">Entreprises</button><button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
       ${GA.perm.canDeleteProspect(me) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
       <button class="icon-btn" data-x title="Fermer (Échap)" aria-label="Fermer">✕</button>
     </div>
@@ -1197,6 +1384,7 @@ GA.panel = (function () {
     const root = el();
     $('[data-x]', root).addEventListener('click', close);
     $$('[data-nav]', root).forEach(b => b.addEventListener('click', () => step(+b.dataset.nav)));
+    const eb = $('[data-ent]', root); if (eb) eb.addEventListener('click', () => GA.entreprisesView.open(p.zone_id));
     const mb = $('[data-map]', root); if (mb) mb.addEventListener('click', () => GA.mapView.focusZone(p.zone_id));
     const db = $('[data-del]', root); if (db) db.addEventListener('click', async () => {
       if (!await confirmBox('Supprimer la fiche', `Supprimer « ${p.nom} » et son historique ? Cette action est définitive.`, 'Supprimer', true)) return;
@@ -1347,6 +1535,142 @@ GA.adminView = (function () {
     init() { $('#admin-new').addEventListener('click', () => edit(null)); },
     render,
   };
+})();
+
+</script>
+<script>
+/* js/ui/entreprises-view.js */
+/* Fenêtre « Entreprises de la zone » : établissements autour d'une zone de la carte,
+   avec SIREN, activité, dirigeant, et création d'une fiche CRM pré-remplie.
+   La carte n'est pas modifiée : la recherche part des coordonnées de js/data/zones.js. */
+window.GA = window.GA || {};
+
+GA.entreprisesView = (function () {
+  const { $, $$, esc, run, modal } = GA.ui;
+  const RAYONS = [[0.2, '200 m'], [0.5, '500 m'], [1, '1 km'], [2, '2 km']];
+  let rayon = 0.5;
+
+  const fmtSiren = s => String(s).replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3');
+  const fmtDist = m => m == null ? '' : m < 1000 ? m + ' m' : (m / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' km';
+
+  function prospectFor(row) {
+    if (!row.siret && !row.siren) return null;
+    return GA.store.prospects.find(p => (p.notes || '').includes(row.siret ? 'SIRET ' + row.siret : 'SIREN ' + row.siren)) || null;
+  }
+
+  function rowHtml(row, i, canCreate) {
+    const p = prospectFor(row);
+    const sec = GA.NAF_SECTIONS[row.section];
+    const badges = [
+      row.siege ? '<span class="tag">Siège</span>' : '',
+      row.actif ? '' : '<span class="tag out">Fermé</span>',
+      p ? '<span class="tag ok">Dans le CRM</span>' : '',
+    ].join(' ');
+    const l2 = [row.enseigne && row.raison_sociale ? esc(row.raison_sociale) : '', 'SIREN <b class="mono">' + esc(fmtSiren(row.siren)) + '</b>',
+      row.naf ? esc(row.naf) + (sec ? ' — ' + esc(sec) : '') : ''].filter(Boolean).join(' · ');
+    const l3 = [esc(row.adresse), GA.TRANCHES_EFFECTIF[row.effectif] ? esc(GA.TRANCHES_EFFECTIF[row.effectif]) : '',
+      row.dirigeant && row.dirigeant.nom ? 'Dirigeant : ' + esc(row.dirigeant.nom) + (row.dirigeant.qualite ? ' (' + esc(row.dirigeant.qualite) + ')' : '') : ''].filter(Boolean).join(' · ');
+    const action = p ? `<button class="btn" data-open="${esc(p.id)}">Ouvrir la fiche</button>`
+      : canCreate ? `<button class="btn" data-add="${i}">+ Fiche</button>` : '';
+    return `<div class="ent-row ${row.actif ? '' : 'closed'}">
+      <div class="ent-main"><div class="ent-t"><b>${esc(row.enseigne || row.raison_sociale || '(sans nom)')}</b> ${badges}</div>
+        <div class="ent-s">${l2}</div><div class="ent-s muted">${l3}</div></div>
+      <div class="ent-d">${fmtDist(row.distance)}</div>
+      <div class="ent-a"><a class="btn ghost" href="${esc(GA.entreprises.ficheUrl(row))}" target="_blank" rel="noopener noreferrer" title="Fiche officielle sur l’Annuaire des entreprises">Annuaire ↗</a>${action}</div>
+    </div>`;
+  }
+
+  function open(zoneId) {
+    const zone = GA.svc.zone(zoneId);
+    if (!zone) { GA.ui.toast('Zone inconnue.', 'err'); return; }
+    const canCreate = GA.perm.canCreateProspect(GA.auth.current());
+    const st = { section: '', q: '', closed: false, rows: [], loading: false, error: '', total: 0, page: 0, pages: 0, truncated: false };
+    let ctrl = null;
+
+    const m = modal('Entreprises de la zone ' + zone.id, `
+      <div class="ent-zone"><b>${esc(zone.id)} · ${esc(zone.nom)}</b> <span class="muted">${esc(zone.com)}</span></div>
+      <div class="ent-tools">
+        <select id="ent-r" aria-label="Rayon">${RAYONS.map(([v, l]) => `<option value="${v}" ${v === rayon ? 'selected' : ''}>Rayon ${l}</option>`).join('')}</select>
+        <select id="ent-sec" aria-label="Activité"><option value="">Toutes les activités</option>${Object.entries(GA.NAF_SECTIONS).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select>
+        <div class="search"><span aria-hidden="true">⌕</span><input id="ent-q" type="search" placeholder="Filtrer : nom, SIREN, adresse, dirigeant…"></div>
+        <label class="chk"><input type="checkbox" id="ent-closed"> Afficher les fermés</label>
+      </div>
+      <div class="ent-status" id="ent-status" aria-live="polite"></div>
+      <div class="ent-list" id="ent-list"></div>
+      <p class="hint ent-src">Source : Annuaire des entreprises (INSEE, registre national des entreprises), données publiques.
+        Distances à vol d’oiseau depuis le point de la zone. Les établissements non géolocalisés n’apparaissent pas.</p>`, { cls: 'xl' });
+
+    const visibleRows = () => {
+      const q = st.q.toLowerCase().replace(/\s+/g, ' ').trim(), qd = q.replace(/\s/g, '');
+      return st.rows.map((r, i) => [r, i]).filter(([r]) => {
+        if (!st.closed && !r.actif) return false;
+        if (!q) return true;
+        if (qd && /^\d+$/.test(qd) && (r.siren.includes(qd) || r.siret.includes(qd))) return true;
+        return [r.enseigne, r.raison_sociale, r.adresse, r.naf, r.dirigeant && r.dirigeant.nom].join(' ').toLowerCase().includes(q);
+      });
+    };
+
+    function renderList() {
+      if (!m.el.isConnected) return;
+      const rows = visibleRows();
+      const fermes = st.rows.filter(r => !r.actif).length;
+      let s;
+      if (st.error) s = `<span class="danger-t">${esc(st.error)}</span> <button class="link" id="ent-retry">Réessayer</button>`;
+      else if (st.loading) s = `Chargement… ${st.page}/${st.pages || '?'} · ${st.rows.length} établissement(s) trouvés`;
+      else s = `<b>${rows.length}</b> établissement(s) affiché(s) sur ${st.rows.length}` +
+        (fermes && !st.closed ? ` · ${fermes} fermé(s) masqué(s)` : '') +
+        (st.truncated ? ` · <span class="danger-t">résultats limités à 500 entreprises : réduisez le rayon ou filtrez par activité</span>` : '');
+      $('#ent-status', m.el).innerHTML = s;
+      const retry = $('#ent-retry', m.el); if (retry) retry.addEventListener('click', load);
+      const list = $('#ent-list', m.el);
+      list.innerHTML = rows.length ? rows.map(([r, i]) => rowHtml(r, i, canCreate)).join('')
+        : (st.loading ? '' : `<div class="empty"><p>${st.rows.length ? 'Aucun établissement ne correspond au filtre.' : 'Aucun établissement trouvé dans ce rayon.'}</p></div>`);
+      $$('[data-add]', list).forEach(b => b.addEventListener('click', () => add(st.rows[+b.dataset.add], b)));
+      $$('[data-open]', list).forEach(b => b.addEventListener('click', () => { m.close(); GA.app.openProspect(b.dataset.open); }));
+    }
+
+    async function add(row, btn) {
+      btn.disabled = true;
+      const p = await run(() => GA.svc.createProspect(GA.entreprises.toProspect(row, zone)), 'Fiche créée : ' + (row.enseigne || row.raison_sociale));
+      if (p) await GA.app.reload({ keepPanel: true });
+      renderList();
+    }
+
+    async function load() {
+      if (ctrl) ctrl.abort();
+      const mine = ctrl = new AbortController();
+      Object.assign(st, { rows: [], loading: true, error: '', page: 0, pages: 0, truncated: false });
+      renderList();
+      try {
+        const r = await GA.entreprises.near(zone, {
+          radiusKm: rayon, section: st.section, signal: mine.signal,
+          onProgress: pr => {
+            if (mine !== ctrl) return;
+            if (!m.el.isConnected) { mine.abort(); return; }
+            Object.assign(st, { rows: pr.rows.slice().sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)), page: pr.page, pages: pr.totalPages, total: pr.total });
+            renderList();
+          },
+        });
+        if (mine !== ctrl) return;
+        st.truncated = r.truncated;
+      } catch (e) {
+        if (mine.signal.aborted) return;
+        st.error = e.message || String(e);
+      }
+      if (mine !== ctrl) return;
+      st.loading = false;
+      renderList();
+    }
+
+    $('#ent-r', m.el).addEventListener('change', e => { rayon = +e.target.value; load(); });
+    $('#ent-sec', m.el).addEventListener('change', e => { st.section = e.target.value; load(); });
+    $('#ent-q', m.el).addEventListener('input', e => { st.q = e.target.value; renderList(); });
+    $('#ent-closed', m.el).addEventListener('change', e => { st.closed = e.target.checked; renderList(); });
+    $('#ent-q', m.el).focus();
+    load();
+  }
+
+  return { open };
 })();
 
 </script>

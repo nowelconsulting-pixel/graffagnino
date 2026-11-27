@@ -43,11 +43,13 @@ GA.crmView = (function () {
       <select id="crm-statut" aria-label="Statut"><option value="">Tous les statuts</option>${GA.STATUTS.map(s => `<option value="${s.key}" ${st.statut === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
       <select id="crm-resp" aria-label="Responsable"><option value="">Tous les responsables</option><option value="__me" ${st.resp === '__me' ? 'selected' : ''}>Mes dossiers</option><option value="__none" ${st.resp === '__none' ? 'selected' : ''}>Non attribuées</option>${users().map(u => `<option value="${u.id}" ${st.resp === u.id ? 'selected' : ''}>${esc(u.nom)}</option>`).join('')}</select>
       <select id="crm-zone" aria-label="Zone"><option value="">Toutes les zones</option>${usedZones.map(z => { const zz = GA.svc.zone(z); return `<option value="${z}" ${st.zone === z ? 'selected' : ''}>${z}${zz ? ' — ' + esc(zz.com) : ''}</option>`; }).join('')}</select>
+      ${st.zone && GA.svc.zone(st.zone) ? '<button class="btn" id="crm-ent" title="Établissements autour de la zone, avec SIREN">Entreprises de la zone ' + esc(st.zone) + '</button>' : ''}
       ${(st.q || st.statut || st.resp || st.zone) ? '<button class="link" id="crm-clear">Effacer les filtres</button>' : ''}`;
     $('#crm-q').addEventListener('input', e => { st.q = e.target.value; renderBody(); });
     $('#crm-statut').addEventListener('change', e => { st.statut = e.target.value; render(); });
     $('#crm-resp').addEventListener('change', e => { st.resp = e.target.value; render(); });
     $('#crm-zone').addEventListener('change', e => { st.zone = e.target.value; render(); });
+    const ent = $('#crm-ent'); if (ent) ent.addEventListener('click', () => GA.entreprisesView.open(st.zone));
     const c = $('#crm-clear'); if (c) c.addEventListener('click', () => { st.q = st.statut = st.resp = st.zone = ''; render(); });
   }
 
@@ -158,7 +160,11 @@ GA.crmView = (function () {
         <div class="modal-actions"><button type="button" class="btn" data-close>Annuler</button><button class="btn primary" type="submit">Créer et ouvrir</button></div>
       </form>`);
     const zsel = $('#np-zone', m.el), com = $('#np-com', m.el);
-    const upd = () => { const z = GA.svc.zone(zsel.value); com.value = z ? z.com : com.value; $('#np-zinfo', m.el).innerHTML = z ? GA.panel.zoneSummary(z) : ''; };
+    const upd = () => {
+      const z = GA.svc.zone(zsel.value); com.value = z ? z.com : com.value;
+      $('#np-zinfo', m.el).innerHTML = z ? GA.panel.zoneSummary(z) + '<button type="button" class="link np-ent" id="np-ent">Choisir parmi les entreprises de la zone (SIREN) →</button>' : '';
+      const b = $('#np-ent', m.el); if (b) b.addEventListener('click', () => { m.close(); GA.entreprisesView.open(z.id); });
+    };
     zsel.addEventListener('change', upd); upd();
     $('#np-form', m.el).addEventListener('submit', async e => {
       e.preventDefault();

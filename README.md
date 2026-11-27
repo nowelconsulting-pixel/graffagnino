@@ -32,6 +32,7 @@ js/data/repository.js         choix de la source de données (GA.config.dataSour
 js/services/auth.js           connexion simulée (→ Supabase Auth)
 js/services/permissions.js    droits administrateur / utilisateur
 js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
+js/services/entreprises.js    entreprises autour d'une zone (API Recherche d'entreprises)
 js/ui/*.js                    écrans : connexion, carte, CRM, fiche, administration
 js/app.js                     démarrage et navigation
 supabase/schema.sql           tables et règles de sécurité prévues (non exécuté)
@@ -40,6 +41,12 @@ tools/bundle.py               produit la version en un seul fichier
 ```
 
 L'interface n'accède aux données que par `GA.repo`. Toutes les fonctions sont asynchrones, comme le seront les appels Supabase.
+
+## Entreprises de la zone
+
+Le bouton « Entreprises » (fiche, CRM filtré sur une zone, ou formulaire de nouvelle fiche) liste les établissements situés autour du point de la zone : nom, enseigne, SIREN, SIRET, activité, effectif, dirigeant, distance.
+Filtres : rayon (200 m à 2 km), secteur d'activité, texte, établissements fermés. « + Fiche » crée une fiche CRM pré-remplie (SIREN et source dans les notes).
+Source : API publique [Recherche d'entreprises](https://recherche-entreprises.api.gouv.fr/docs/) (data.gouv.fr), gratuite et sans clé. La carte n'est pas modifiée.
 
 ## Droits
 

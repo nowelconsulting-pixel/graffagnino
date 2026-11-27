@@ -51,7 +51,7 @@ GA.panel = (function () {
       <button class="icon-btn" data-nav="1" ${i < 0 || i >= ids.length - 1 ? 'disabled' : ''} title="Fiche suivante (J)" aria-label="Fiche suivante">↓</button>
       <span class="muted small">${i >= 0 ? (i + 1) + ' / ' + ids.length : ''}</span>
       <span class="grow"></span>
-      ${z ? '<button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
+      ${z ? '<button class="btn ghost" data-ent title="Établissements autour de la zone, avec SIREN">Entreprises</button><button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
       ${GA.perm.canDeleteProspect(me) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
       <button class="icon-btn" data-x title="Fermer (Échap)" aria-label="Fermer">✕</button>
     </div>
@@ -114,6 +114,7 @@ GA.panel = (function () {
     const root = el();
     $('[data-x]', root).addEventListener('click', close);
     $$('[data-nav]', root).forEach(b => b.addEventListener('click', () => step(+b.dataset.nav)));
+    const eb = $('[data-ent]', root); if (eb) eb.addEventListener('click', () => GA.entreprisesView.open(p.zone_id));
     const mb = $('[data-map]', root); if (mb) mb.addEventListener('click', () => GA.mapView.focusZone(p.zone_id));
     const db = $('[data-del]', root); if (db) db.addEventListener('click', async () => {
       if (!await confirmBox('Supprimer la fiche', `Supprimer « ${p.nom} » et son historique ? Cette action est définitive.`, 'Supprimer', true)) return;

@@ -190,6 +190,31 @@ tr.inactive td{color:var(--grey)}
 .toast.err{background:#9b1c1c}
 .toast.out{opacity:0}
 
+/* Entreprises de la zone */
+.modal.xl{width:min(980px,100%);height:min(88vh,900px);display:flex;flex-direction:column}
+.modal.xl .modal-b{flex:1;min-height:0;display:flex;flex-direction:column}
+.ent-zone{margin-bottom:10px}
+.ent-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.ent-tools select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;min-height:34px;max-width:260px}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--mute);cursor:pointer}
+.ent-status{font-size:12.5px;color:var(--mute);min-height:20px;margin-bottom:6px}
+.ent-list{flex:1;min-height:120px;overflow-y:auto;border-top:1px solid var(--line)}
+.ent-row{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:12px;align-items:center;padding:9px 4px;border-bottom:1px solid #eef0f2}
+.ent-row:hover{background:var(--soft)}
+.ent-row.closed{opacity:.6}
+.ent-t{line-height:1.3}
+.ent-s{font-size:12.5px;margin-top:2px;overflow-wrap:anywhere}
+.ent-d{text-align:right;font-size:12.5px;color:var(--mute);white-space:nowrap}
+.ent-a{display:flex;gap:6px;justify-content:flex-end}
+.ent-a a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:600}
+.ent-src{margin:10px 0 0}
+.np-ent{display:block;margin-top:6px;padding:0}
+@media (max-width:700px){
+  .ent-row{grid-template-columns:minmax(0,1fr) auto}
+  .ent-a{grid-column:1/-1;justify-content:flex-start}
+}
+
 /* Petits écrans */
 @media (max-width:900px){
   body.panel-open .page{padding-right:24px}
