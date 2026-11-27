@@ -36,6 +36,7 @@ js/services/auth.js           connexion (Supabase Auth)
 js/services/permissions.js    droits administrateur / utilisateur
 js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
 js/services/entreprises.js    entreprises autour d'une zone (API Recherche d'entreprises)
+js/services/export-xlsx.js    export Excel (.xlsx) sans bibliothèque
 js/ui/*.js                    écrans : connexion, carte, CRM, fiche, administration
 js/app.js                     démarrage et navigation
 supabase/schema.sql           tables, déclencheurs et règles de sécurité de la base
@@ -44,6 +45,12 @@ tools/bundle.py               produit la version en un seul fichier
 ```
 
 L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase de `js/config.js` est faite pour être visible : sans compte connecté et actif, les règles de sécurité de la base ne donnent accès à rien. La clé secrète (service_role) ne doit jamais apparaître dans le dépôt.
+
+## Relances, tableau de bord, export
+
+- **Relances :** dossiers en retard, du jour, des 7 prochains jours, et dossiers en cours sans date. « Fait » enregistre l'échange et programme la suite ; « +1 j » / « +7 j » reportent. La pastille rouge du menu compte mes relances en retard ou du jour.
+- **Tableau de bord :** fiches par statut, par responsable et par zone ; taux de transformation = accords / dossiers clos (accords + refus).
+- **Export Excel :** bouton « Exporter Excel » (CRM ou tableau de bord) : fiches, échanges et utilisateurs dans un classeur .xlsx, qui sert aussi de sauvegarde.
 
 ## Entreprises de la zone
 

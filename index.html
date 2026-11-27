@@ -18,6 +18,8 @@
     <nav class="nav" aria-label="Menu principal">
       <a href="#carte" data-route="carte">Carte</a>
       <a href="#crm" data-route="crm">CRM Prospection</a>
+      <a href="#relances" data-route="relances">Relances <span class="nav-badge" id="nav-relances" hidden></span></a>
+      <a href="#bord" data-route="bord">Tableau de bord</a>
       <a href="#admin" data-route="admin" hidden>Administration</a>
     </nav>
     <span class="grow"></span>
@@ -34,10 +36,29 @@
       <div><h1>Prospection</h1><span class="muted" id="crm-count"></span></div>
       <span class="grow"></span>
       <div class="seg" id="crm-mode" role="group" aria-label="Affichage"><button data-mode="table">Tableau</button><button data-mode="kanban">Kanban</button></div>
+      <button class="btn" id="crm-export" title="Toutes les fiches, échanges et utilisateurs (sauvegarde)">Exporter Excel</button>
       <button class="btn primary" id="crm-new">+ Nouvelle fiche</button>
     </div>
     <div class="toolbar" id="crm-toolbar"></div>
     <div id="crm-body"></div>
+  </section>
+
+  <section id="view-relances" class="view page" hidden>
+    <div class="page-h">
+      <div><h1>Relances</h1><span class="muted" id="rel-count"></span></div>
+      <span class="grow"></span>
+      <div class="seg" id="rel-who" role="group" aria-label="Dossiers"><button data-who="me">Mes dossiers</button><button data-who="all">Tous</button></div>
+    </div>
+    <div id="rel-body"></div>
+  </section>
+
+  <section id="view-bord" class="view page" hidden>
+    <div class="page-h">
+      <div><h1>Tableau de bord</h1><span class="muted" id="bord-sub"></span></div>
+      <span class="grow"></span>
+      <button class="btn" id="bord-export">Exporter Excel</button>
+    </div>
+    <div id="bord-body"></div>
   </section>
 
   <section id="view-admin" class="view page" hidden>
@@ -66,6 +87,7 @@
 <script src="js/services/permissions.js"></script>
 <script src="js/services/prospects.js"></script>
 <script src="js/services/entreprises.js"></script>
+<script src="js/services/export-xlsx.js"></script>
 <!-- Interface -->
 <script src="js/ui/dom.js"></script>
 <script src="js/ui/login.js"></script>
@@ -74,6 +96,8 @@
 <script src="js/ui/record-panel.js"></script>
 <script src="js/ui/admin-view.js"></script>
 <script src="js/ui/entreprises-view.js"></script>
+<script src="js/ui/relances-view.js"></script>
+<script src="js/ui/dashboard-view.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

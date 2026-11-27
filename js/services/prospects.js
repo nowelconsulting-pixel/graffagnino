@@ -5,7 +5,7 @@ window.GA = window.GA || {};
 GA.svc = (function () {
   const me = () => GA.auth.current();
   const deny = () => { throw new Error('Action non autorisée pour votre rôle.'); };
-  const today = () => new Date().toISOString().slice(0, 10);
+  const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const FIELDS = ['nom', 'zone_id', 'adresse', 'commune', 'statut', 'proprietaire_nom', 'proprietaire_type', 'decideur_nom',

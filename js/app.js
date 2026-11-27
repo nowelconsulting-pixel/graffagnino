@@ -5,7 +5,7 @@ GA.store = { prospects: [], users: [] };
 
 GA.app = (function () {
   const { $, $$, esc, avatar } = GA.ui;
-  const ROUTES = ['carte', 'crm', 'admin'];
+  const ROUTES = ['carte', 'crm', 'relances', 'bord', 'admin'];
   let route = null;
 
   async function reload(opts) {
@@ -13,6 +13,9 @@ GA.app = (function () {
     GA.store.users = await GA.svc.listUsers();
     if (route === 'crm') GA.crmView.render();
     if (route === 'admin') GA.adminView.render();
+    if (route === 'relances') GA.relancesView.render();
+    if (route === 'bord') GA.dashboardView.render();
+    GA.relancesView.badge();
     GA.mapView.sendCounts();
     if (!(opts && opts.keepPanel) && GA.panel.current() && !GA.store.prospects.some(p => p.id === GA.panel.current())) GA.panel.close();
   }
@@ -35,6 +38,8 @@ GA.app = (function () {
     if (r === 'carte') { GA.mapView.mount(); GA.mapView.shown(); }
     if (r === 'crm') GA.crmView.render();
     if (r === 'admin') GA.adminView.render();
+    if (r === 'relances') GA.relancesView.render();
+    if (r === 'bord') GA.dashboardView.render();
   }
 
   async function onHash() {
@@ -66,7 +71,7 @@ GA.app = (function () {
   }
 
   async function start() {
-    GA.crmView.init(); GA.adminView.init();
+    GA.crmView.init(); GA.adminView.init(); GA.relancesView.init(); GA.dashboardView.init();
     $$('.nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.route); }));
     window.addEventListener('hashchange', onHash);
     if (!GA.repo.isPersistent()) $('#persist-warn').hidden = false;

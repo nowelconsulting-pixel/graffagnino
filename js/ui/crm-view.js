@@ -179,9 +179,11 @@ GA.crmView = (function () {
         st.mode = b.dataset.mode; try { localStorage.setItem('ga.crm.mode', st.mode); } catch (e) {} render();
       }));
       $('#crm-new').addEventListener('click', () => newProspect());
+      $('#crm-export').addEventListener('click', GA.dashboardView.exportExcel);
     },
     render, newProspect,
     setZoneFilter(id) { st.zone = id; st.q = ''; st.statut = ''; st.resp = ''; },
+    setFilters(f) { Object.assign(st, { q: '', statut: '', resp: '', zone: '' }, f); },
     visibleIds: () => visible,
   };
 })();
