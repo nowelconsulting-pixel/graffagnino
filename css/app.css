@@ -311,6 +311,10 @@ tr.inactive td{color:var(--grey)}
 .score-det td{padding:5px 2px;border-bottom:1px solid #eef0f2;vertical-align:top}
 .score-det .pts{text-align:right;font-weight:700;white-space:nowrap}
 .score-det .pts small{font-weight:400;color:var(--mute)}
+.score-det .rule{font-size:11px;opacity:.85}
+.indic{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;font-size:13px}
+.indic .tag{margin-right:4px}
+.pano{display:block;margin-top:6px;max-width:100%;width:260px;border-radius:6px;border:1px solid var(--line)}
 .terrain{display:grid;gap:4px}
 .tfld{display:grid;grid-template-columns:170px minmax(0,1fr);align-items:center;gap:8px;font-size:13px}
 .tfld span{color:var(--mute)}

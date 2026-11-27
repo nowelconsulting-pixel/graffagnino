@@ -37,6 +37,11 @@ js/vendor/                    supabase-js 2.118.0 (MIT) et Leaflet 1.9.4 (BSD-2)
 data/parcelles-pm/            propriétaires personnes morales par commune (DGFiP, généré)
 data/gares.json               gares SNCF et fréquentation (généré)
 data/tmja.json                trafic du réseau routier national (généré)
+data/carreaux/                population INSEE par carreau de 200 m, par département (généré)
+data/bpe/                     équipements INSEE qui attirent du monde, par département (généré)
+data/parkings.json            parkings publics (généré)
+data/antennes-4g.json         antennes 4G / 5G des opérateurs (généré)
+data/zones-v2.json            les 57 zones calculées avec le moteur v2 (généré)
 js/services/auth.js           connexion (Supabase Auth)
 js/services/permissions.js    droits administrateur / utilisateur
 js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
@@ -53,6 +58,7 @@ supabase/004_moteur.sql             score des fiches, évaluation terrain, régl
 tools/make_zones.py           régénère js/data/zones.js depuis la carte
 tools/bundle.py               produit la version en un seul fichier
 tools/make_parcelles.py       régénère data/parcelles-pm/ depuis le fichier DGFiP
+tools/make_carreaux.py, make_bpe.py, make_parkings.py, make_antennes.py, make_gares.py, make_tmja.py   données du moteur
 ```
 
 L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase de `js/config.js` est faite pour être visible : sans compte connecté et actif, les règles de sécurité de la base ne donnent accès à rien. La clé secrète (service_role) ne doit jamais apparaître dans le dépôt.
@@ -63,22 +69,35 @@ L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase 
 - **Tableau de bord :** fiches par statut, par responsable et par zone ; taux de transformation = accords / dossiers clos (accords + refus).
 - **Export Excel :** bouton « Exporter Excel » (CRM ou tableau de bord) : fiches, échanges et utilisateurs dans un classeur .xlsx, qui sert aussi de sauvegarde.
 
-## Moteur de score et onglet Opportunités
+## Moteur de score (barème v2) et onglet Opportunités
 
-Le moteur (`js/services/moteur.js`) recalcule en direct, pour n'importe quel point de France, le barème de l'étude du 25/11 :
-environnement commercial 30, concurrence 20, emplois ≤ 500 m 15, trafic 15, gare ≤ 800 m 10, population à 10 min 10 ;
-score = points obtenus ÷ points mesurables × 100, avec fourchette. Il ajoute la distance et le temps par la route depuis le laboratoire.
-Vérifié sur la zone S01 : même score (81, fourchette 69–84) et même distance (7,29 km) que l'étude.
+Le moteur (`js/services/moteur.js`) note en direct n'importe quel point de France sur 100 :
 
-- **Aucune exclusion :** la proximité d'un de nos distributeurs donne un malus réglable (−10 à moins de 1,5 km, −5 à moins de 3 km par défaut),
-  l'évaluation terrain de la fiche (accès, visibilité, attractivité) un bonus ou un malus.
-- **Opportunités :** classement unique des 57 zones (score de l'étude, ou « Calcul direct » avec les données du jour) et des emplacements repérés.
-  « Analyser une adresse… » note n'importe quelle adresse (Lille, etc.) et permet d'y créer une fiche.
-- **Réglages du moteur** (administrateurs) : sites (laboratoires, distributeurs, dont le futur 2e distributeur), distance maximale, malus.
-- Sources : SIRENE, IGN Géoplateforme (itinéraire, isochrone, géocodage), API Carto (communes et populations INSEE),
-  `data/gares.json` (SNCF, `tools/make_gares.py`), `data/tmja.json` (trafic du réseau national, `tools/make_tmja.py`).
-- L'environnement commercial, jugé « fort / moyen / faible » à la main dans l'étude, est ici mesuré : fort = grande surface et ≥ 20 commerces
-  ou restaurants à 500 m, ou ≥ 50 ; moyen = grande surface ou ≥ 15 ; sinon faible.
+| Critère | Points | Mesure | Source |
+|---|---|---|---|
+| Habitants à 800 m | 15 | habitants, ménages, âges, niveau de vie | INSEE Filosofi 2019, carreaux de 200 m (`data/carreaux/`) |
+| Population à 10 min | 10 | habitants dans l'isochrone voiture de 10 min | IGN isochrone × carreaux INSEE (communes en secours) |
+| Activité du soir et lieux de vie | 15 | lieux ouverts après 21 h, bars, cinémas, salles de sport ; collèges, lycées, sup, hôpitaux, gares, piscines… | OpenStreetMap (horaires) + INSEE BPE 2025 (`data/bpe/`) |
+| Facilité d'arrêt | 10 | places de stationnement à 200 m, station-service | OpenStreetMap + base nationale du stationnement (`data/parkings.json`) |
+| Flux de passage | 15 | trafic des routes nationales, gare et fréquentation, lignes de bus | DGITM (`data/tmja.json`), SNCF (`data/gares.json`), OpenStreetMap |
+| Environnement commercial | 15 | commerces et restaurants à 500 m, grandes surfaces | SIRENE |
+| Concurrence | 15 | pizzerias à 1 km (dont ouvertes après 22 h), distributeurs de pizzas | SIRENE + OpenStreetMap + réglages |
+| Emplois à 500 m | 5 | emplois salariés estimés | SIRENE |
+
+Indicateurs sans points, affichés avec le détail : **réseau mobile** (antennes 4G/5G des 4 opérateurs à 1,5 km, ANFR, `data/antennes-4g.json`),
+**zone d'urbanisme** (Géoportail de l'urbanisme via API Carto ; zone A ou N signalée), **photo de rue** la plus proche (Panoramax).
+
+Puis : malus de proximité d'un de nos distributeurs (réglable, jamais une exclusion) et bonus / malus terrain de la fiche (accès, visibilité, attractivité).
+Score = points obtenus ÷ points mesurables × 100 (fourchette si une donnée manque). P1 ≥ 60, P2 45–59, P3 < 45.
+
+- **Opportunités :** classement unique des 57 zones (calculées avec le moteur v2, `data/zones-v2.json`) et des emplacements repérés ;
+  « Recalculer » relance une zone ou une fiche avec les données du jour ; « Analyser une adresse… » note n'importe quelle adresse.
+- **Réglages du moteur** (administrateurs) : sites (laboratoires, distributeurs), distance maximale, malus de proximité.
+- Les données INSEE (carreaux, équipements) sont préparées pour l'Île-de-France, l'Oise, le Nord et le Pas-de-Calais.
+  Pour un autre département : `tools/make_carreaux.py` et `tools/make_bpe.py` avec son numéro, puis ajouter ce numéro à `DEPS_CARREAUX` dans `js/services/moteur.js`.
+  Sans ces fichiers, la population passe par les communes et les lieux de vie par OpenStreetMap seul.
+- Limites : les routes départementales n'ont pas de comptage public dans le Val-d'Oise ; les horaires d'ouverture d'OpenStreetMap sont incomplets ;
+  les pizzerias et distributeurs concurrents peuvent être sous-comptés. Une analyse prend une à deux minutes.
 
 ## Recherche et emplacements sur la carte
 

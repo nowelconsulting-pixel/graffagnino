@@ -5,7 +5,8 @@ window.GA = window.GA || {};
 
 GA.opportunitesView = (function () {
   const { $, $$, esc, run, modal, zoneChip, statutPill } = GA.ui;
-  const LS = 'ga.zones.analyses';
+  const LS = 'ga.zones.analyses.v2';
+  let zonesV2 = null;   // data/zones-v2.json : les 57 zones calculées avec le moteur v2
   const st = { source: '', conformes: false };
   let R = null, zonesLive = {};
   try { zonesLive = JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) {}
@@ -23,8 +24,9 @@ GA.opportunitesView = (function () {
   function lignes() {
     const out = [];
     for (const z of GA.ZONES) {
-      const live = zonesLive[z.id];
-      const a = live || Object.assign(GA.moteur.depuisZone(z), { malus: malusEtude(z.lat, z.lon) });
+      const live = zonesLive[z.id] || (zonesV2 && zonesV2.zones[z.id]);
+      // Malus de proximité recalculé avec les réglages actuels (sites, distances).
+      const a = Object.assign({}, live || GA.moteur.depuisZone(z), { malus: malusEtude(z.lat, z.lon) });
       const fiches = GA.store.prospects.filter(p => p.zone_id === z.id);
       out.push({ type: 'zone', id: z.id, nom: z.nom, commune: z.com, lat: z.lat, lon: z.lon, a, live: !!live, f: GA.moteur.scoreFinal(a, null), fiches });
     }
@@ -40,7 +42,7 @@ GA.opportunitesView = (function () {
     const f = l.f, a = l.a;
     const score = f ? `${GA.scoreView.badge(f.total, f.priorite)}<span class="opp-bar" style="--c:${GA.scoreView.PRIO[f.priorite]};width:${f.total * 0.6}px"></span>` : '<span class="muted">à calculer</span>';
     const ajust = f && f.ajust.length ? f.ajust.map(x => `${x.pts > 0 ? '+' : ''}${x.pts}`).join(' ') : '';
-    const src = l.type === 'zone' ? (l.live ? '<span class="src-tag live">Zone · calcul direct</span>' : '<span class="src-tag">Zone · étude 25/11</span>') : '<span class="src-tag live">Emplacement repéré</span>';
+    const src = l.type === 'zone' ? (zonesLive[l.id] ? '<span class="src-tag live">Zone · calcul direct</span>' : l.live ? `<span class="src-tag live">Zone · moteur v2${zonesV2 && zonesV2.date ? ' du ' + GA.ui.fmtDate(zonesV2.date) : ''}</span>` : '<span class="src-tag">Zone · étude 25/11 (ancien barème)</span>') : `<span class="src-tag live">Emplacement repéré${a && a.v < 2 ? ' · ancien barème' : ''}</span>`;
     const crm = l.type === 'fiche' ? statutPill(l.p.statut) : (l.fiches.length ? `${l.fiches.length} fiche(s)` : '<span class="muted">—</span>');
     const conf = a && a.conforme === false ? ' <span class="tag out">hors périmètre</span>' : a && a.alerte ? ' <span class="tag warn">à remesurer</span>' : '';
     return `<tr data-i="${i}">
@@ -51,30 +53,31 @@ GA.opportunitesView = (function () {
       <td>${a && a.labo ? km(a.labo.km) : '—'}${conf}</td>
       <td>${crm}</td>
       <td class="t-act">
-        <button class="btn ghost" data-act="calc">${l.type === 'fiche' ? (a ? 'Recalculer' : 'Calculer') : (l.live ? 'Recalculer' : 'Calcul direct')}</button>
+        <button class="btn ghost" data-act="calc">${a && !a.etude ? 'Recalculer' : 'Calculer'}</button>
         ${l.type === 'fiche' ? '<button class="btn ghost" data-act="open">Fiche</button>' : ''}
         <button class="btn ghost" data-act="map">Carte</button></td></tr>`;
   }
 
   async function render() {
     R = await GA.moteur.getReglages();
+    if (!zonesV2) { try { zonesV2 = await (await fetch('data/zones-v2.json')).json(); } catch (e) { zonesV2 = { zones: {} }; } }
     const list = lignes();
     window.__oppList = list;
-    const sansScore = GA.store.prospects.filter(p => p.lat != null && !p.analyse).length;
+    const sansScore = GA.store.prospects.filter(p => p.lat != null && (!p.analyse || p.analyse.v < 2)).length;
     $('#opp-body').innerHTML = `
       <div class="opp-tools">
         <select id="opp-src"><option value="">Zones et emplacements</option><option value="zone" ${st.source === 'zone' ? 'selected' : ''}>Zones de l’étude</option><option value="fiche" ${st.source === 'fiche' ? 'selected' : ''}>Emplacements repérés</option></select>
         <label class="chk"><input type="checkbox" id="opp-conf" ${st.conformes ? 'checked' : ''}> À moins de ${R.distanceMaxKm} km du laboratoire</label>
         <span class="grow"></span>
-        ${sansScore ? `<button class="btn" id="opp-all">Calculer les ${sansScore} emplacement(s) sans score</button>` : ''}
+        ${sansScore ? `<button class="btn" id="opp-all">Calculer les ${sansScore} emplacement(s) sans score v2</button>` : ''}
         <button class="btn" id="opp-addr">Analyser une adresse…</button>
         ${GA.perm.isAdmin(GA.auth.current()) ? '<button class="btn ghost" id="opp-set">Réglages du moteur</button>' : ''}
       </div>
       <div class="table-wrap"><table class="crm-table stat-table opp-table"><thead><tr><th></th><th>Emplacement</th><th>Score</th><th>Détail</th><th>Distance labo</th><th>CRM</th><th></th></tr></thead>
       <tbody>${list.map(row).join('')}</tbody></table></div>
-      <p class="hint">Score = barème de l’étude (environnement commercial 30, concurrence 20, emplois 15, trafic 15, gare 10, population 10), sur les données mesurables,
-        puis malus de proximité d’un de vos distributeurs et bonus / malus terrain de la fiche. Aucune zone n’est exclue : P1 ≥ 60, P2 45–59, P3 &lt; 45.
-        « Calcul direct » recalcule une zone de l’étude avec les données du jour (environ 15 secondes).</p>`;
+      <p class="hint">Barème v2 sur 100 : habitants à 800 m 15 · population à 10 min 10 · activité du soir et lieux de vie 15 · facilité d’arrêt 10 ·
+        flux de passage 15 · environnement commercial 15 · concurrence 15 · emplois 5. Puis malus de proximité d’un de vos distributeurs et bonus / malus terrain de la fiche.
+        Aucune zone n’est exclue : P1 ≥ 60, P2 45–59, P3 &lt; 45. « Recalculer » relance le calcul avec les données du jour (une à deux minutes).</p>`;
     $('#opp-src').addEventListener('change', e => { st.source = e.target.value; render(); });
     $('#opp-conf').addEventListener('change', e => { st.conformes = e.target.checked; render(); });
     const all = $('#opp-all'); if (all) all.addEventListener('click', () => calcAll(all));
@@ -100,7 +103,7 @@ GA.opportunitesView = (function () {
   }
 
   async function calcAll(btn) {
-    const todo = GA.store.prospects.filter(p => p.lat != null && !p.analyse && GA.perm.canEditProspect(GA.auth.current(), p));
+    const todo = GA.store.prospects.filter(p => p.lat != null && (!p.analyse || p.analyse.v < 2) && GA.perm.canEditProspect(GA.auth.current(), p));
     btn.disabled = true; let n = 0;
     for (const p of todo) {
       btn.textContent = `Calcul ${++n}/${todo.length}…`;

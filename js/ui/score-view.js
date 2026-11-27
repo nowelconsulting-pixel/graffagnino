@@ -10,11 +10,26 @@ GA.scoreView = (function () {
     return `<span class="score-badge" style="--c:${PRIO[prio]}"><b>${total}</b><small>/100 · P${prio}</small></span>`;
   }
 
+  // Indicateurs sans points : réseau mobile, urbanisme, photo de rue.
+  function indicateursHtml(a) {
+    const i = a && a.ind; if (!i) return '';
+    const l = [];
+    if (i.reseau) l.push(`<li><span class="tag ${i.reseau.ok ? 'ok' : 'warn'}">Réseau mobile</span> ${esc(i.reseau.texte)}</li>`);
+    if (i.urbanisme) l.push(`<li><span class="tag ${/^[AN]/.test(i.urbanisme.type || '') ? 'warn' : ''}">Urbanisme</span> ${esc(i.urbanisme.texte)}</li>`);
+    if (i.photo) l.push(`<li><span class="tag">Photo de rue</span> <a href="${esc(i.photo.lien)}" target="_blank" rel="noopener">voir la photo la plus proche${i.photo.date ? ' (' + esc(fmtDate(i.photo.date)) + ')' : ''} ↗</a>
+      ${i.photo.vignette ? `<a href="${esc(i.photo.lien)}" target="_blank" rel="noopener"><img class="pano" src="${esc(i.photo.vignette)}" alt="Photo de rue Panoramax" loading="lazy"></a>` : ''}</li>`);
+    else if (a.v >= 2) l.push('<li><span class="tag">Photo de rue</span> <span class="muted">aucune photo Panoramax à moins de 80 m</span></li>');
+    return l.length ? `<ul class="indic">${l.join('')}</ul>` : '';
+  }
+
   function detailHtml(a) {
     if (!a || a.etude) return '';
-    return `<table class="score-det"><tbody>${a.det.map(d => `<tr><td>${esc(d.lab)}${ST[d.st] || ''}<div class="muted small">${esc(d.val)}</div></td>
+    const bareme = a.v >= 2 ? 'Barème v2 (habitants, population, activité du soir, stationnement, flux, commerce, concurrence, emplois).'
+      : 'Ancien barème de l’étude du 25/11 : cliquez sur « Recalculer » pour passer au barème v2.';
+    return `<table class="score-det"><tbody>${a.det.map(d => `<tr><td>${esc(d.lab)}${ST[d.st] || ''}<div class="muted small">${esc(d.val)}</div>${d.rule ? `<div class="muted small rule">${esc(d.rule)}</div>` : ''}</td>
       <td class="pts">${d.pts == null ? '—' : d.pts}<small>/${d.mx}</small></td></tr>`).join('')}</tbody></table>
-      <p class="hint">Score affiché = points obtenus ÷ points mesurables × 100 (couverture ${a.couverture} %) ; fourchette ${a.lo}–${a.hi} selon les données manquantes. Barème de l’étude du 25/11.</p>`;
+      ${indicateursHtml(a)}
+      <p class="hint">Score affiché = points obtenus ÷ points mesurables × 100 (couverture ${a.couverture} %) ; fourchette ${a.lo}–${a.hi} selon les données manquantes. ${bareme}</p>`;
   }
 
   function resume(a, p) {
@@ -23,7 +38,9 @@ GA.scoreView = (function () {
     const conf = a.conforme == null ? '' : a.conforme ? `<span class="tag ok">≤ ${a.distanceMaxKm || 10} km du laboratoire</span>` : `<span class="tag out">au-delà de ${a.distanceMaxKm || 10} km</span>`;
     return `<div class="score-head">${badge(f.total, f.priorite)}
       <div class="score-meta"><div>Score de base <b>${a.score}</b> (fourchette ${a.lo}–${a.hi})${f.ajust.length ? ' · ' + f.ajust.map(x => `${x.pts > 0 ? '+' : ''}${x.pts} ${esc(x.lab)}`).join(' · ') : ''}</div>
-      <div class="muted small">${labo} ${conf}${a.alerte ? ' <span class="tag warn">à remesurer</span>' : ''} · calculé le ${fmtDate(a.date)}</div></div></div>`;
+      <div class="muted small">${labo} ${conf}${a.alerte ? ' <span class="tag warn">à remesurer</span>' : ''} · calculé le ${fmtDate(a.date)}${a.v < 2 ? ' · <span class="tag warn">ancien barème</span>' : ''}</div>
+      ${a.ind && a.ind.reseau && !a.ind.reseau.ok ? `<div class="small danger-t">${esc(a.ind.reseau.texte)}</div>` : ''}
+      ${a.ind && a.ind.urbanisme && /^[AN]/.test(a.ind.urbanisme.type || '') ? `<div class="small danger-t">Urbanisme : ${esc(a.ind.urbanisme.texte)}</div>` : ''}</div></div>`;
   }
 
   // Section « Score de l'emplacement » du panneau de fiche.
@@ -63,5 +80,5 @@ GA.scoreView = (function () {
     }));
   }
 
-  return { section, bind, badge, detailHtml, resume, analyserFiche, PRIO };
+  return { section, bind, badge, detailHtml, resume, analyserFiche, PRIO, indicateursHtml };
 })();
