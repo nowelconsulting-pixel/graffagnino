@@ -61,18 +61,43 @@ GA.svc = (function () {
     /* ---- Échanges ---- */
     listExchanges: id => GA.repo.listExchanges(id),
 
-    async addExchange(prospectId, { type, date, commentaire }) {
+    async addExchange(prospectId, { type, date, commentaire, lat, lon, precision_m }) {
       const u = me(); const p = await GA.repo.getProspect(prospectId);
       if (!p || !GA.perm.canEditProspect(u, p)) deny();
       if (!GA.TYPES_ECHANGE.some(t => t.key === type)) throw new Error('Type d’échange inconnu.');
       const c = String(commentaire || '').trim();
       if (!c) throw new Error('Ajoutez un commentaire.');
-      return GA.repo.addExchange({ prospect_id: prospectId, type, date: date || today(), commentaire: c, auteur_id: u.id });
+      const ex = { prospect_id: prospectId, type, date: date || today(), commentaire: c, auteur_id: u.id };
+      if (isFinite(lat) && isFinite(lon)) Object.assign(ex, { lat, lon, precision_m: isFinite(precision_m) ? Math.round(precision_m) : null });
+      return GA.repo.addExchange(ex);
     },
 
     async deleteExchange(prospect, exchange) {
       if (!GA.perm.canDeleteExchange(me(), prospect, exchange)) deny();
       return GA.repo.deleteExchange(exchange.id);
+    },
+
+    /* ---- Photos et documents ---- */
+    listDocuments: id => GA.repo.listDocuments(id),
+    documentUrls: chemins => GA.repo.documentUrls(chemins),
+
+    // Ajoute des fichiers à une fiche ; les photos sont réduites (2000 px, JPEG) avant l'envoi.
+    async addDocuments(prospectId, files, { categorie, exchangeId } = {}) {
+      const u = me(); const p = await GA.repo.getProspect(prospectId);
+      if (!p || !GA.perm.canEditProspect(u, p)) deny();
+      const out = [];
+      for (const f of files) {
+        const file = await GA.images.reduce(f);
+        const cat = categorie || (/^image\//.test(file.type) ? 'photo' : 'autre');
+        out.push(await GA.repo.uploadDocument({ prospect_id: prospectId, exchange_id: exchangeId, file, nom: file.name || f.name, categorie: cat }));
+      }
+      return out;
+    },
+
+    async deleteDocument(prospect, doc) {
+      const u = me();
+      if (!(GA.perm.isAdmin(u) || (doc.auteur_id === u.id && GA.perm.canEditProspect(u, prospect)))) deny();
+      return GA.repo.deleteDocument(doc);
     },
 
     /* ---- Utilisateurs (administration) ---- */

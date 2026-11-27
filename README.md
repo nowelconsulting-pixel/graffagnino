@@ -15,6 +15,7 @@ L'inscription libre est désactivée dans Supabase.
 ## Installation de la base (une seule fois)
 
 Dans Supabase, **SQL Editor → New query**, coller le contenu de `supabase/schema.sql`, puis **Run**.
+Puis exécuter de la même façon `supabase/002_documents_visites.sql` (photos, documents, position GPS des visites).
 Nommer ensuite le premier administrateur :
 
 ```sql
@@ -37,9 +38,11 @@ js/services/permissions.js    droits administrateur / utilisateur
 js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
 js/services/entreprises.js    entreprises autour d'une zone (API Recherche d'entreprises)
 js/services/export-xlsx.js    export Excel (.xlsx) sans bibliothèque
+js/services/images.js         réduction des photos avant envoi
 js/ui/*.js                    écrans : connexion, carte, CRM, fiche, administration
 js/app.js                     démarrage et navigation
 supabase/schema.sql           tables, déclencheurs et règles de sécurité de la base
+supabase/002_documents_visites.sql  documents, stockage privé, position GPS des échanges
 tools/make_zones.py           régénère js/data/zones.js depuis la carte
 tools/bundle.py               produit la version en un seul fichier
 ```
@@ -51,6 +54,13 @@ L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase 
 - **Relances :** dossiers en retard, du jour, des 7 prochains jours, et dossiers en cours sans date. « Fait » enregistre l'échange et programme la suite ; « +1 j » / « +7 j » reportent. La pastille rouge du menu compte mes relances en retard ou du jour.
 - **Tableau de bord :** fiches par statut, par responsable et par zone ; taux de transformation = accords / dossiers clos (accords + refus).
 - **Export Excel :** bouton « Exporter Excel » (CRM ou tableau de bord) : fiches, échanges et utilisateurs dans un classeur .xlsx, qui sert aussi de sauvegarde.
+
+## Photos, documents et visites terrain
+
+- **Photos et documents** (section de la fiche) : photos, plans d'implantation, conventions, PDF et fichiers bureautiques (20 Mo maximum).
+  Stockage privé Supabase : les fichiers ne s'ouvrent que par des liens temporaires, pour les comptes actifs. Les photos sont réduites à 2000 px avant l'envoi.
+- **Visite terrain** (bouton « + Visite », en bas à droite sur téléphone) : position GPS, fiche la plus proche présélectionnée, compte rendu,
+  photos prises sur place, statut et prochaine relance. L'échange garde la position (lien « 📍 position » dans l'historique).
 
 ## Entreprises de la zone
 

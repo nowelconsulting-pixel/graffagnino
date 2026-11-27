@@ -51,6 +51,7 @@ GA.panel = (function () {
       <button class="icon-btn" data-nav="1" ${i < 0 || i >= ids.length - 1 ? 'disabled' : ''} title="Fiche suivante (J)" aria-label="Fiche suivante">↓</button>
       <span class="muted small">${i >= 0 ? (i + 1) + ' / ' + ids.length : ''}</span>
       <span class="grow"></span>
+      ${ed ? '<button class="btn ghost" data-visite title="Compte rendu de visite avec photos et position">Visite</button>' : ''}
       ${z ? '<button class="btn ghost" data-ent title="Établissements autour de la zone, avec SIREN">Entreprises</button><button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
       ${GA.perm.canDeleteProspect(me) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
       <button class="icon-btn" data-x title="Fermer (Échap)" aria-label="Fermer">✕</button>
@@ -88,6 +89,9 @@ GA.panel = (function () {
       <h4>Notes</h4>
       <textarea class="notes" data-f="notes" rows="3" ${ed ? '' : 'disabled'} placeholder="Notes libres…">${esc(p.notes)}</textarea>
 
+      <h4>Photos et documents</h4>
+      <div id="docs" class="docs"></div>
+
       <h4>Historique des échanges <span class="muted small">${ex.length}</span></h4>
       ${ed ? `<form class="composer" id="ex-form">
         <div class="ex-types">${GA.TYPES_ECHANGE.map(t => `<button type="button" class="chip ${t.key === exType ? 'on' : ''}" data-type="${t.key}"><span aria-hidden="true">${t.icon}</span> ${t.label}</button>`).join('')}
@@ -100,12 +104,14 @@ GA.panel = (function () {
         const a = userById(e.auteur_id);
         return `<li><span class="tl-ic t-${e.type}" aria-hidden="true">${t.icon}</span><div class="tl-b">
           <div class="tl-h"><b>${t.label}</b> · ${fmtDate(e.date)} · <span class="muted">${esc(a ? a.nom : '?')}</span>
+          ${e.lat != null && e.lon != null ? `<a class="small" href="https://www.google.com/maps/search/?api=1&query=${+e.lat},${+e.lon}" target="_blank" rel="noopener" title="Position enregistrée${e.precision_m ? ' (± ' + e.precision_m + ' m)' : ''}">📍 position</a>` : ''}
           ${GA.perm.canDeleteExchange(me, p, e) ? `<button class="link small" data-delex="${e.id}">Supprimer</button>` : ''}</div>
-          <div class="tl-c">${esc(e.commentaire)}</div></div></li>`;
+          <div class="tl-c">${esc(e.commentaire)}</div><div class="tl-docs" data-exdocs="${esc(e.id)}"></div></div></li>`;
       }).join('') : '<li class="muted">Aucun échange enregistré.</li>'}</ol>
     </div>`;
     bind(p);
     autosize();
+    GA.docsView.mount($('#docs'), p, ed);
   }
 
   function autosize() { $$('#panel textarea').forEach(t => { if (t.id === 'ex-text') return; t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }); }
@@ -114,6 +120,7 @@ GA.panel = (function () {
     const root = el();
     $('[data-x]', root).addEventListener('click', close);
     $$('[data-nav]', root).forEach(b => b.addEventListener('click', () => step(+b.dataset.nav)));
+    const vb = $('[data-visite]', root); if (vb) vb.addEventListener('click', () => GA.visiteView.open(p.id));
     const eb = $('[data-ent]', root); if (eb) eb.addEventListener('click', () => GA.entreprisesView.open(p.zone_id));
     const mb = $('[data-map]', root); if (mb) mb.addEventListener('click', () => GA.mapView.focusZone(p.zone_id));
     const db = $('[data-del]', root); if (db) db.addEventListener('click', async () => {

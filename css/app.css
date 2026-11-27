@@ -250,6 +250,36 @@ tr.inactive td{color:var(--grey)}
 .stat-table td{font-variant-numeric:tabular-nums}
 .zone-table tbody tr{cursor:pointer}
 
+/* Photos et documents */
+.docs{display:grid;gap:8px}
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.doc-photo{position:relative;margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--soft)}
+.doc-photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+.doc-photo figcaption{font-size:11px;color:var(--mute);padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-photo .doc-del{position:absolute;top:4px;right:4px;background:#fffd;width:26px;height:26px}
+.doc-list{display:grid;gap:4px}
+.doc-file{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.doc-ic{flex:none;width:34px;height:34px;border-radius:6px;background:#fde8e8;color:#9b1c1c;font-size:10px;font-weight:800;display:grid;place-items:center}
+.doc-f{flex:1;min-width:0}.doc-f a{color:var(--ink);font-weight:600;overflow-wrap:anywhere}.doc-f small{display:block;color:var(--mute)}
+.doc-add{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.doc-add select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;min-height:34px}
+.doc-add label.btn{display:inline-flex;align-items:center}
+.tl-docs{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.tl-docs:empty{display:none}
+.tl-docs img{width:72px;height:54px;object-fit:cover;border-radius:5px;border:1px solid var(--line)}
+
+/* Visite terrain */
+.vt-gps{font-size:13px;background:var(--soft);border-radius:8px;padding:8px 10px;margin-bottom:12px}
+.vt-gps .dot{display:inline-block;vertical-align:middle;margin-right:4px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
+.vt-gps .dot.on{background:var(--green)}.vt-gps .dot.off{background:var(--grey)}
+.vt-photos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.vt-photos:empty{display:none}
+.vt-photos figure{position:relative;margin:0}
+.vt-photos img{width:84px;height:84px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+.vt-photos .icon-btn{position:absolute;top:2px;right:2px;background:#fffd;width:24px;height:24px}
+.vt-cam{margin-bottom:12px;display:flex;align-items:center;justify-content:center}
+.vt textarea.notes{font-size:15px}
+
 /* Petits écrans */
 @media (max-width:900px){
   body.panel-open .page{padding-right:24px}
@@ -266,6 +296,10 @@ tr.inactive td{color:var(--grey)}
   .nav a{padding:0 8px;font-size:13px;white-space:nowrap;flex:none}
   .topbar>.grow{display:none}
   .user-box{flex:none}
+  .btn-visite{position:fixed;right:16px;bottom:16px;z-index:40;min-height:52px;padding:0 20px;border-radius:26px;font-size:16px;box-shadow:0 6px 18px #0004}
+  body.panel-open .btn-visite{bottom:16px}
+  .modal-wrap{padding:0;align-items:end}
+  .modal{max-height:94vh;border-radius:14px 14px 0 0}
   .brand{flex:none}
   #logout{padding:6px 8px;font-size:13px}
   .rel-row{flex-wrap:wrap}
