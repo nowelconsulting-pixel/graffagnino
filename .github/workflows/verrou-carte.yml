@@ -1,0 +1,9 @@
+name: Verrou de la carte
+on: [push, pull_request]
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: carte/carte.html est-elle inchangée ?
+        run: sha256sum -c carte/carte.sha256

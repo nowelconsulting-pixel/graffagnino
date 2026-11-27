@@ -1,0 +1,6 @@
+# Mise en ligne Netlify : site statique, aucune compilation.
+# Verrou de la carte : si carte/carte.html ne correspond plus à son empreinte
+# (carte/carte.sha256), la mise en ligne échoue et le site garde la version précédente.
+[build]
+  publish = "."
+  command = "sha256sum -c carte/carte.sha256"
