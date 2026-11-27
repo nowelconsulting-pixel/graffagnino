@@ -35,7 +35,9 @@ GA.mapView = (function () {
       if (doc.getElementById('ga-ajustements')) return true;
       const st = doc.createElement('style');
       st.id = 'ga-ajustements';
-      st.textContent = '#side header > h1{display:none}';
+      st.textContent = '#side header > h1{display:none}' +
+        // Téléphone : la carte prend plus de place que le panneau des zones.
+        '@media (max-width:760px){#side{height:34%!important}#status{display:none}}';
       doc.head.appendChild(st);
       // Recherche, ajout d'emplacements et fiches CRM sur la carte (js/ui/carte-ajouts.js).
       const sc = doc.createElement('script');

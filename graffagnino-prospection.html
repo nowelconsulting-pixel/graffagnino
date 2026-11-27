@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#263F1F">
 <title>GRAFFAGNINO - To the Moon</title>
 <link rel="icon" type="image/png" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
@@ -71,6 +72,7 @@ input,select,textarea{font:inherit;color:inherit}
 .nav a{display:flex;align-items:center;padding:0 12px;color:var(--mute);text-decoration:none;border-bottom:2px solid transparent;font-weight:500}
 .nav a:hover{color:var(--ink)}
 .nav a.on{color:var(--ink);border-bottom-color:var(--ink)}
+.nav .ni{display:none}
 .user-box{display:flex;align-items:center;gap:8px}
 .ub-t{line-height:1.15}
 .ub-t small{display:block;color:var(--mute);font-size:11.5px}
@@ -353,13 +355,33 @@ tr.inactive td{color:var(--grey)}
 @media (max-width:600px){
   .topbar{gap:8px;padding:0 8px}
   .brand b,.brand .sep,.brand .muted{display:none}
-  .nav{overflow-x:auto;scrollbar-width:none;min-width:0;flex:1 1 auto}
-  .nav::-webkit-scrollbar{display:none}
-  .nav a{padding:0 8px;font-size:13px;white-space:nowrap;flex:none}
-  .topbar>.grow{display:none}
+  /* Barre d'onglets en bas de l'écran */
+  .nav{position:fixed;left:0;right:0;bottom:0;height:calc(58px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:#fff;border-top:1px solid var(--line);z-index:30;gap:0;box-shadow:0 -2px 10px #1d24300d}
+  .nav a{position:relative;flex:1 1 0;flex-direction:column;justify-content:center;gap:1px;padding:0 2px;border-bottom:0;border-top:2px solid transparent;font-size:11px;min-width:0}
+  .nav a .nl{display:none}
+  .nav a::after{content:attr(data-short);white-space:nowrap}
+  .nav a .ni{display:block;font-size:18px;line-height:1}
+  .nav a.on{color:var(--brand);border-top-color:var(--brand)}
+  .nav a .nav-badge{position:absolute;top:4px;left:calc(50% + 6px);margin:0;min-width:16px;height:16px;font-size:10px}
+  .page{padding-bottom:150px}
+  #view-carte{height:calc(100vh - var(--top) - 58px - env(safe-area-inset-bottom))}
+  .panel{bottom:calc(58px + env(safe-area-inset-bottom))}
+  .panel-top .btn{padding:4px 8px;min-height:30px;font-size:13px}
+  /* Listes en cartes */
+  .crm-table:not(.stat-table):not(.admin-table) thead,.opp-table thead{display:none}
+  .crm-table:not(.stat-table):not(.admin-table) tbody tr,.opp-table tbody tr{display:flex;flex-wrap:wrap;align-items:center;gap:5px 10px;padding:11px 6px;border-bottom:1px solid #eef0f2}
+  .crm-table:not(.stat-table):not(.admin-table) td,.opp-table td{padding:0;border:0}
+  .crm-table:not(.stat-table):not(.admin-table) td:first-child{flex-basis:100%;min-width:0}
+  .crm-table:not(.stat-table):not(.admin-table) td:nth-child(8){display:none}
+  .crm-table .t-next{flex-basis:100%;max-width:none;white-space:normal}
+  .table-wrap{overflow-x:visible}
+  .stat-table,.admin-table{display:block;overflow-x:auto}
+  .opp-table td.rang{width:auto}
+  .opp-table td:nth-child(2){flex:1 1 calc(100% - 40px);min-width:0}
+  .opp-table td.t-act{flex-basis:100%;text-align:left}
   .user-box{flex:none}
-  .btn-visite{position:fixed;right:16px;bottom:16px;z-index:40;min-height:52px;padding:0 20px;border-radius:26px;font-size:16px;box-shadow:0 6px 18px #0004}
-  body.panel-open .btn-visite{bottom:16px}
+  .btn-visite{position:fixed;right:14px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:40;min-height:52px;padding:0 20px;border-radius:26px;font-size:16px;box-shadow:0 6px 18px #0004}
+  body.panel-open .btn-visite{display:none}
   .modal-wrap{padding:0;align-items:end}
   .modal{max-height:94vh;border-radius:14px 14px 0 0}
   .brand{flex:none}
@@ -384,12 +406,12 @@ tr.inactive td{color:var(--grey)}
   <header class="topbar">
     <a class="brand brand-link" href="#bord" id="brand-home" title="Tableau de bord"><span class="logo">G</span><b>GRAFFAGNINO</b></a>
     <nav class="nav" aria-label="Menu principal">
-      <a href="#bord" data-route="bord">Tableau de bord</a>
-      <a href="#carte" data-route="carte">Carte</a>
-      <a href="#opp" data-route="opp">Opportunités</a>
-      <a href="#crm" data-route="crm">CRM</a>
-      <a href="#relances" data-route="relances">Relances <span class="nav-badge" id="nav-relances" hidden></span></a>
-      <a href="#admin" data-route="admin" hidden>Administration</a>
+      <a href="#bord" data-route="bord" data-short="Accueil"><span class="ni" aria-hidden="true">▦</span><span class="nl">Tableau de bord</span></a>
+      <a href="#carte" data-route="carte" data-short="Carte"><span class="ni" aria-hidden="true">◎</span><span class="nl">Carte</span></a>
+      <a href="#opp" data-route="opp" data-short="Opport."><span class="ni" aria-hidden="true">★</span><span class="nl">Opportunités</span></a>
+      <a href="#crm" data-route="crm" data-short="CRM"><span class="ni" aria-hidden="true">☰</span><span class="nl">CRM</span></a>
+      <a href="#relances" data-route="relances" data-short="Relances"><span class="ni" aria-hidden="true">◷</span><span class="nl">Relances</span> <span class="nav-badge" id="nav-relances" hidden></span></a>
+      <a href="#admin" data-route="admin" data-short="Admin" hidden><span class="ni" aria-hidden="true">⚙</span><span class="nl">Administration</span></a>
     </nav>
     <span class="grow"></span>
     <button class="btn primary btn-visite" id="btn-visite" title="Saisir une visite terrain : compte rendu, photos, position">+ Visite</button>
@@ -1688,7 +1710,9 @@ GA.mapView = (function () {
       if (doc.getElementById('ga-ajustements')) return true;
       const st = doc.createElement('style');
       st.id = 'ga-ajustements';
-      st.textContent = '#side header > h1{display:none}';
+      st.textContent = '#side header > h1{display:none}' +
+        // Téléphone : la carte prend plus de place que le panneau des zones.
+        '@media (max-width:760px){#side{height:34%!important}#status{display:none}}';
       doc.head.appendChild(st);
       // Recherche, ajout d'emplacements et fiches CRM sur la carte (js/ui/carte-ajouts.js).
       const sc = doc.createElement('script');
