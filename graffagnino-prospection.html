@@ -49,6 +49,8 @@ input,select,textarea{font:inherit;color:inherit}
 .login{min-height:100%;display:grid;place-items:center;padding:24px;background:linear-gradient(160deg,#f6f7f9,#e9edf2)}
 .login-card{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;box-shadow:0 10px 30px #1d243014}
 .brand{display:flex;align-items:center;gap:8px}
+.brand-link{color:inherit;text-decoration:none;border-radius:8px}
+.brand-link:hover .logo{background:var(--brand-dark)}
 .brand .sep{color:var(--grey)}
 .logo{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--brand);color:#fff;font-family:"Chewy",system-ui,sans-serif;font-weight:400;font-size:19px;line-height:1}
 .brand.big{margin-bottom:22px}
@@ -380,7 +382,7 @@ tr.inactive td{color:var(--grey)}
 <!-- Application -->
 <div id="app" hidden>
   <header class="topbar">
-    <div class="brand"><span class="logo">G</span><b>GRAFFAGNINO</b></div>
+    <a class="brand brand-link" href="#bord" id="brand-home" title="Tableau de bord"><span class="logo">G</span><b>GRAFFAGNINO</b></a>
     <nav class="nav" aria-label="Menu principal">
       <a href="#bord" data-route="bord">Tableau de bord</a>
       <a href="#carte" data-route="carte">Carte</a>
@@ -3250,6 +3252,7 @@ GA.app = (function () {
   async function start() {
     GA.crmView.init(); GA.adminView.init(); GA.relancesView.init(); GA.dashboardView.init();
     $('#btn-visite').addEventListener('click', () => GA.visiteView.open(GA.panel.current()));
+    $('#brand-home').addEventListener('click', e => { e.preventDefault(); go('bord'); });
     $$('.nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.route); }));
     window.addEventListener('hashchange', onHash);
     if (!GA.repo.isPersistent()) $('#persist-warn').hidden = false;

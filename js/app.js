@@ -75,6 +75,7 @@ GA.app = (function () {
   async function start() {
     GA.crmView.init(); GA.adminView.init(); GA.relancesView.init(); GA.dashboardView.init();
     $('#btn-visite').addEventListener('click', () => GA.visiteView.open(GA.panel.current()));
+    $('#brand-home').addEventListener('click', e => { e.preventDefault(); go('bord'); });
     $$('.nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.route); }));
     window.addEventListener('hashchange', onHash);
     if (!GA.repo.isPersistent()) $('#persist-warn').hidden = false;
