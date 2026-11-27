@@ -21,7 +21,7 @@
   .ga-sugg{position:absolute;top:40px;left:0;right:0;background:#fff;border:1px solid #c9ced6;border-radius:8px;box-shadow:0 6px 18px #0003;overflow:hidden}
   .ga-sugg button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:8px 12px;cursor:pointer;font:inherit}
   .ga-sugg button:hover,.ga-sugg button.on{background:#f1f3f5}
-  .ga-add{height:36px;border:0;border-radius:8px;padding:0 14px;background:#1d2430;color:#fff;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 8px #0003;white-space:nowrap}
+  .ga-add{height:36px;border:0;border-radius:8px;padding:0 14px;background:#263F1F;color:#fff;font:600 13px system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 8px #0003;white-space:nowrap}
   .ga-add.on{background:#f08c00}
   .ga-hint{position:absolute;z-index:1001;top:54px;left:50%;transform:translateX(-50%);background:#1d2430;color:#fff;border-radius:6px;padding:5px 10px;font:12.5px system-ui,sans-serif}
   .leaflet-container.ga-adding{cursor:crosshair}
@@ -29,7 +29,7 @@
   .ga-pop b{font-size:14px}
   .ga-pop input{width:100%;box-sizing:border-box;border:1px solid #c9ced6;border-radius:6px;padding:6px 8px;margin:6px 0;font-size:14px}
   .ga-pop .muted{color:#5d6675;font-size:12px}
-  .ga-pop button{border:0;border-radius:6px;padding:6px 10px;background:#1d2430;color:#fff;cursor:pointer;font:600 12.5px system-ui,sans-serif;margin-top:4px}
+  .ga-pop button{border:0;border-radius:6px;padding:6px 10px;background:#263F1F;color:#fff;cursor:pointer;font:600 12.5px system-ui,sans-serif;margin-top:4px}
   .ga-pop button.sec{background:#fff;color:#1d2430;border:1px solid #c9ced6}
   .ga-pin{width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px #0006}
   @media (max-width:760px){.ga-bar{width:calc(100% - 70px);left:auto;right:10px;transform:none}}`;
