@@ -36,9 +36,9 @@ input,select,textarea{font:inherit;color:inherit}
 .login-card{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;box-shadow:0 10px 30px #1d243014}
 .brand{display:flex;align-items:center;gap:8px}
 .brand .sep{color:var(--grey)}
-.logo{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--ink);color:#fff;font-weight:800}
+.logo{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#263F1F;color:#fff;font-family:"Chewy",system-ui,sans-serif;font-weight:400;font-size:19px;line-height:1}
 .brand.big{margin-bottom:22px}
-.brand.big .logo{width:40px;height:40px;font-size:20px;border-radius:9px}
+.brand.big .logo{width:40px;height:40px;font-size:27px;border-radius:9px}
 .brand.big b{display:block;font-size:18px;letter-spacing:.02em}
 .brand.big small{color:var(--mute)}
 .fld{display:block;margin:0 0 12px}
