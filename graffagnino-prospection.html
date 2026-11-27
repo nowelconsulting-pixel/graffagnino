@@ -260,6 +260,7 @@ tr.inactive td{color:var(--grey)}
 
 /* Photos et documents */
 .docs{display:grid;gap:8px}
+.pos-line{padding:6px 7px;font-size:13.5px}
 .doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
 .doc-photo{position:relative;margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--soft)}
 .doc-photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
@@ -549,6 +550,7 @@ GA.createSupabaseRepository = function (client) {
     if (/row-level security|permission denied/i.test(m)) return 'Action non autorisée pour votre rôle.';
     if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Connexion au serveur impossible. Vérifiez votre connexion internet.';
     if (/jwt expired|invalid jwt/i.test(m)) return 'Votre session a expiré : reconnectez-vous.';
+    if (/'(lat|lon)' column|column .*\b(lat|lon)\b/i.test(m)) return 'Position des fiches pas encore activée : exécutez supabase/003_position_fiches.sql dans Supabase.';
     return m;
   }
   // Exécute une requête Supabase et renvoie ses données, ou lève une erreur lisible.
@@ -746,7 +748,7 @@ GA.svc = (function () {
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const FIELDS = ['nom', 'zone_id', 'adresse', 'commune', 'statut', 'proprietaire_nom', 'proprietaire_type', 'decideur_nom',
-    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes'];
+    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes', 'lat', 'lon'];
 
   function zone(id) { return GA.ZONES.find(z => z.id === id) || null; }
 
@@ -757,6 +759,7 @@ GA.svc = (function () {
     if (out.zone_id && !zone(out.zone_id)) throw new Error('Zone inconnue : ' + out.zone_id);
     if (out.statut && !GA.STATUTS.some(s => s.key === out.statut)) throw new Error('Statut inconnu.');
     if (out.email && !EMAIL.test(out.email)) throw new Error('Adresse email invalide.');
+    for (const k of ['lat', 'lon']) if (k in out && out[k] != null && !isFinite(out[k])) throw new Error('Position invalide.');
     return out;
   }
 
@@ -1340,6 +1343,7 @@ GA.mapView = (function () {
     const counts = {};
     (GA.store.prospects || []).forEach(p => { if (p.zone_id) counts[p.zone_id] = (counts[p.zone_id] || 0) + 1; });
     post({ type: 'ga:crmCounts', counts });
+    try { const f = frame && frame.contentWindow && frame.contentWindow.__gaFiches; if (f) f.refresh(); } catch (e) {}
   }
 
   window.addEventListener('message', ev => {
@@ -1366,6 +1370,10 @@ GA.mapView = (function () {
       st.id = 'ga-ajustements';
       st.textContent = '#side header > h1{display:none}';
       doc.head.appendChild(st);
+      // Recherche, ajout d'emplacements et fiches CRM sur la carte (js/ui/carte-ajouts.js).
+      const sc = doc.createElement('script');
+      sc.src = new URL('js/ui/carte-ajouts.js', window.location.href).href;
+      doc.body.appendChild(sc);
       return true;
     } catch (e) { return true; /* cadre inaccessible : la carte s'affiche telle quelle */ }
   }
@@ -1394,6 +1402,15 @@ GA.mapView = (function () {
       if (ready) post({ type: 'ga:focus', id }); else pendingFocus = id;
     },
     sendCounts,
+    // Centre la carte sur une fiche positionnée.
+    focusProspect(p) {
+      GA.app.go('carte');
+      const tryFocus = (n) => {
+        try { const f = frame.contentWindow.__gaFiches; if (f) { f.focus(p); return; } } catch (e) {}
+        if (n > 0) setTimeout(() => tryFocus(n - 1), 200);
+      };
+      setTimeout(() => tryFocus(40), 100);
+    },
   };
 })();
 
@@ -1670,6 +1687,9 @@ GA.panel = (function () {
         ${z ? `<div class="prop"><label></label><div class="pv">${zoneSummary(z)}</div></div>` : ''}
         ${prop('Adresse', 'adresse', p, ed)}
         ${prop('Commune', 'commune', p, ed)}
+        <div class="prop"><label>Position</label><div class="pv pos-line">${p.lat != null && p.lon != null
+          ? `<span>📍 Positionnée sur la carte</span> <button class="link" data-showpos>Voir sur la carte</button>${ed ? ' <button class="link" data-locate>Relocaliser depuis l’adresse</button>' : ''}`
+          : `<span class="muted">Non positionnée</span>${ed ? ' <button class="link" data-locate>Localiser depuis l’adresse</button>' : ''}`}</div></div>
       </div>
 
       <h4>Qualification commerciale</h4>
@@ -1717,6 +1737,19 @@ GA.panel = (function () {
     $('[data-x]', root).addEventListener('click', close);
     $$('[data-nav]', root).forEach(b => b.addEventListener('click', () => step(+b.dataset.nav)));
     const vb = $('[data-visite]', root); if (vb) vb.addEventListener('click', () => GA.visiteView.open(p.id));
+    const sp = $('[data-showpos]', root); if (sp) sp.addEventListener('click', () => GA.mapView.focusProspect(p));
+    const lc = $('[data-locate]', root); if (lc) lc.addEventListener('click', async () => {
+      const q = [p.adresse, p.commune].filter(Boolean).join(' ');
+      if (q.length < 4) { GA.ui.toast('Renseignez d’abord l’adresse et la commune.', 'err'); return; }
+      lc.disabled = true; lc.textContent = 'Localisation…';
+      const r = await run(async () => {
+        const d = await (await fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(q))).json();
+        const f = d.features && d.features[0];
+        if (!f || f.properties.score < 0.5) throw new Error('Adresse introuvable : précisez-la (numéro, rue, commune).');
+        return GA.svc.updateProspect(p.id, { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] });
+      }, 'Fiche positionnée');
+      if (r) { await GA.app.reload({ keepPanel: true }); render(); } else { lc.disabled = false; lc.textContent = 'Localiser depuis l’adresse'; }
+    });
     const fb = $('[data-foncier]', root); if (fb) fb.addEventListener('click', () => GA.foncierView.open(p.id));
     const eb = $('[data-ent]', root); if (eb) eb.addEventListener('click', () => GA.entreprisesView.open(p.zone_id));
     const mb = $('[data-map]', root); if (mb) mb.addEventListener('click', () => GA.mapView.focusZone(p.zone_id));
@@ -2304,12 +2337,14 @@ GA.visiteView = (function () {
         let id = sel.value;
         if (id === NEW) {
           const zid = $('#vt-zone', m.el).value, z = GA.svc.zone(zid);
-          const p = await GA.svc.createProspect({ nom: $('#vt-nom', m.el).value, zone_id: zid, commune: z ? z.com : '' });
+          const p = await GA.svc.createProspect({ nom: $('#vt-nom', m.el).value, zone_id: zid, commune: z ? z.com : '', ...(pos && pos.acc < 150 ? { lat: pos.lat, lon: pos.lon } : {}) });
           id = p.id;
         }
         const ex = await GA.svc.addExchange(id, { type: 'visite', date: GA.svc.today(), commentaire: texte, lat: pos && pos.lat, lon: pos && pos.lon, precision_m: pos && pos.acc });
         if (photos.length) await GA.svc.addDocuments(id, photos.map(x => x.file), { categorie: 'photo', exchangeId: ex.id });
-        await GA.svc.updateProspect(id, { statut: $('#vt-statut', m.el).value, prochaine_action: $('#vt-next', m.el).value, date_relance: $('#vt-date', m.el).value });
+        const cur = GA.store.prospects.find(x => x.id === id);
+        const posPatch = pos && pos.acc < 150 && cur && cur.lat == null ? { lat: pos.lat, lon: pos.lon } : {};
+        await GA.svc.updateProspect(id, { statut: $('#vt-statut', m.el).value, prochaine_action: $('#vt-next', m.el).value, date_relance: $('#vt-date', m.el).value, ...posPatch });
         return id;
       }, 'Visite enregistrée');
       if (ok) {

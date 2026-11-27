@@ -6,7 +6,8 @@
 - Ne jamais modifier `carte/carte.sha256` : cette empreinte bloque la mise en ligne Netlify et fait échouer
   la vérification GitHub si la carte change.
 - Une évolution qui semble demander de toucher à la carte se fait côté application (`js/`, `css/`, `index.html`),
-  en dialoguant avec la carte par messages. Si c'est impossible, s'arrêter et demander l'accord explicite
+  en dialoguant avec la carte par messages, ou en lui ajoutant des éléments depuis l'application
+  (`js/ui/map-view.js` injecte un style et `js/ui/carte-ajouts.js` dans le cadre, sans toucher au fichier). Si c'est impossible, s'arrêter et demander l'accord explicite
   du propriétaire du dépôt avant toute modification.
 
 ## Travail

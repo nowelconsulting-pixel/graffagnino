@@ -32,6 +32,7 @@ GA.createSupabaseRepository = function (client) {
     if (/row-level security|permission denied/i.test(m)) return 'Action non autorisée pour votre rôle.';
     if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Connexion au serveur impossible. Vérifiez votre connexion internet.';
     if (/jwt expired|invalid jwt/i.test(m)) return 'Votre session a expiré : reconnectez-vous.';
+    if (/'(lat|lon)' column|column .*\b(lat|lon)\b/i.test(m)) return 'Position des fiches pas encore activée : exécutez supabase/003_position_fiches.sql dans Supabase.';
     return m;
   }
   // Exécute une requête Supabase et renvoie ses données, ou lève une erreur lisible.

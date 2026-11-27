@@ -15,7 +15,8 @@ L'inscription libre est désactivée dans Supabase.
 ## Installation de la base (une seule fois)
 
 Dans Supabase, **SQL Editor → New query**, coller le contenu de `supabase/schema.sql`, puis **Run**.
-Puis exécuter de la même façon `supabase/002_documents_visites.sql` (photos, documents, position GPS des visites).
+Puis exécuter de la même façon `supabase/002_documents_visites.sql` (photos, documents, position GPS des visites)
+et `supabase/003_position_fiches.sql` (position des fiches sur la carte).
 Nommer ensuite le premier administrateur :
 
 ```sql
@@ -40,10 +41,12 @@ js/services/prospects.js      logique métier : fiches, statuts, échanges, util
 js/services/entreprises.js    entreprises autour d'une zone (API Recherche d'entreprises)
 js/services/export-xlsx.js    export Excel (.xlsx) sans bibliothèque
 js/services/images.js         réduction des photos avant envoi
-js/ui/*.js                    écrans : connexion, carte, CRM, fiche, administration
+js/ui/*.js                    écrans : connexion, carte, CRM, fiche, relances, tableau de bord, administration
+js/ui/carte-ajouts.js         recherche, emplacements et fiches sur la carte (chargé dans le cadre de la carte)
 js/app.js                     démarrage et navigation
 supabase/schema.sql           tables, déclencheurs et règles de sécurité de la base
 supabase/002_documents_visites.sql  documents, stockage privé, position GPS des échanges
+supabase/003_position_fiches.sql    position des fiches
 tools/make_zones.py           régénère js/data/zones.js depuis la carte
 tools/bundle.py               produit la version en un seul fichier
 tools/make_parcelles.py       régénère data/parcelles-pm/ depuis le fichier DGFiP
@@ -56,6 +59,15 @@ L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase 
 - **Relances :** dossiers en retard, du jour, des 7 prochains jours, et dossiers en cours sans date. « Fait » enregistre l'échange et programme la suite ; « +1 j » / « +7 j » reportent. La pastille rouge du menu compte mes relances en retard ou du jour.
 - **Tableau de bord :** fiches par statut, par responsable et par zone ; taux de transformation = accords / dossiers clos (accords + refus).
 - **Export Excel :** bouton « Exporter Excel » (CRM ou tableau de bord) : fiches, échanges et utilisateurs dans un classeur .xlsx, qui sert aussi de sauvegarde.
+
+## Recherche et emplacements sur la carte
+
+Sur l'onglet Carte : barre de recherche d'adresse (géocodeur IGN) et bouton « + Emplacement » (clic sur la carte → nom → fiche créée,
+avec adresse, commune, position et zone la plus proche à moins de 1,5 km). Toutes les fiches positionnées apparaissent en marqueurs
+de la couleur de leur statut ; clic → ouvrir la fiche. Une fiche se positionne aussi depuis son adresse (« Localiser depuis l'adresse »)
+ou lors d'une visite terrain.
+
+Ces ajouts sont chargés depuis l'application dans le cadre de la carte (`js/ui/carte-ajouts.js`) : `carte/carte.html` n'est pas modifiée.
 
 ## Photos, documents et visites terrain
 

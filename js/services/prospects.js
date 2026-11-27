@@ -9,7 +9,7 @@ GA.svc = (function () {
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const FIELDS = ['nom', 'zone_id', 'adresse', 'commune', 'statut', 'proprietaire_nom', 'proprietaire_type', 'decideur_nom',
-    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes'];
+    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes', 'lat', 'lon'];
 
   function zone(id) { return GA.ZONES.find(z => z.id === id) || null; }
 
@@ -20,6 +20,7 @@ GA.svc = (function () {
     if (out.zone_id && !zone(out.zone_id)) throw new Error('Zone inconnue : ' + out.zone_id);
     if (out.statut && !GA.STATUTS.some(s => s.key === out.statut)) throw new Error('Statut inconnu.');
     if (out.email && !EMAIL.test(out.email)) throw new Error('Adresse email invalide.');
+    for (const k of ['lat', 'lon']) if (k in out && out[k] != null && !isFinite(out[k])) throw new Error('Position invalide.');
     return out;
   }
 

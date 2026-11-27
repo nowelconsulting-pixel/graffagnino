@@ -10,6 +10,7 @@ GA.mapView = (function () {
     const counts = {};
     (GA.store.prospects || []).forEach(p => { if (p.zone_id) counts[p.zone_id] = (counts[p.zone_id] || 0) + 1; });
     post({ type: 'ga:crmCounts', counts });
+    try { const f = frame && frame.contentWindow && frame.contentWindow.__gaFiches; if (f) f.refresh(); } catch (e) {}
   }
 
   window.addEventListener('message', ev => {
@@ -36,6 +37,10 @@ GA.mapView = (function () {
       st.id = 'ga-ajustements';
       st.textContent = '#side header > h1{display:none}';
       doc.head.appendChild(st);
+      // Recherche, ajout d'emplacements et fiches CRM sur la carte (js/ui/carte-ajouts.js).
+      const sc = doc.createElement('script');
+      sc.src = new URL('js/ui/carte-ajouts.js', window.location.href).href;
+      doc.body.appendChild(sc);
       return true;
     } catch (e) { return true; /* cadre inaccessible : la carte s'affiche telle quelle */ }
   }
@@ -64,5 +69,14 @@ GA.mapView = (function () {
       if (ready) post({ type: 'ga:focus', id }); else pendingFocus = id;
     },
     sendCounts,
+    // Centre la carte sur une fiche positionnée.
+    focusProspect(p) {
+      GA.app.go('carte');
+      const tryFocus = (n) => {
+        try { const f = frame.contentWindow.__gaFiches; if (f) { f.focus(p); return; } } catch (e) {}
+        if (n > 0) setTimeout(() => tryFocus(n - 1), 200);
+      };
+      setTimeout(() => tryFocus(40), 100);
+    },
   };
 })();

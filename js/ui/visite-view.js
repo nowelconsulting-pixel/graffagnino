@@ -98,12 +98,14 @@ GA.visiteView = (function () {
         let id = sel.value;
         if (id === NEW) {
           const zid = $('#vt-zone', m.el).value, z = GA.svc.zone(zid);
-          const p = await GA.svc.createProspect({ nom: $('#vt-nom', m.el).value, zone_id: zid, commune: z ? z.com : '' });
+          const p = await GA.svc.createProspect({ nom: $('#vt-nom', m.el).value, zone_id: zid, commune: z ? z.com : '', ...(pos && pos.acc < 150 ? { lat: pos.lat, lon: pos.lon } : {}) });
           id = p.id;
         }
         const ex = await GA.svc.addExchange(id, { type: 'visite', date: GA.svc.today(), commentaire: texte, lat: pos && pos.lat, lon: pos && pos.lon, precision_m: pos && pos.acc });
         if (photos.length) await GA.svc.addDocuments(id, photos.map(x => x.file), { categorie: 'photo', exchangeId: ex.id });
-        await GA.svc.updateProspect(id, { statut: $('#vt-statut', m.el).value, prochaine_action: $('#vt-next', m.el).value, date_relance: $('#vt-date', m.el).value });
+        const cur = GA.store.prospects.find(x => x.id === id);
+        const posPatch = pos && pos.acc < 150 && cur && cur.lat == null ? { lat: pos.lat, lon: pos.lon } : {};
+        await GA.svc.updateProspect(id, { statut: $('#vt-statut', m.el).value, prochaine_action: $('#vt-next', m.el).value, date_relance: $('#vt-date', m.el).value, ...posPatch });
         return id;
       }, 'Visite enregistrée');
       if (ok) {

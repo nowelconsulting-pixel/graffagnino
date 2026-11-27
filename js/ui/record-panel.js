@@ -75,6 +75,9 @@ GA.panel = (function () {
         ${z ? `<div class="prop"><label></label><div class="pv">${zoneSummary(z)}</div></div>` : ''}
         ${prop('Adresse', 'adresse', p, ed)}
         ${prop('Commune', 'commune', p, ed)}
+        <div class="prop"><label>Position</label><div class="pv pos-line">${p.lat != null && p.lon != null
+          ? `<span>📍 Positionnée sur la carte</span> <button class="link" data-showpos>Voir sur la carte</button>${ed ? ' <button class="link" data-locate>Relocaliser depuis l’adresse</button>' : ''}`
+          : `<span class="muted">Non positionnée</span>${ed ? ' <button class="link" data-locate>Localiser depuis l’adresse</button>' : ''}`}</div></div>
       </div>
 
       <h4>Qualification commerciale</h4>
@@ -122,6 +125,19 @@ GA.panel = (function () {
     $('[data-x]', root).addEventListener('click', close);
     $$('[data-nav]', root).forEach(b => b.addEventListener('click', () => step(+b.dataset.nav)));
     const vb = $('[data-visite]', root); if (vb) vb.addEventListener('click', () => GA.visiteView.open(p.id));
+    const sp = $('[data-showpos]', root); if (sp) sp.addEventListener('click', () => GA.mapView.focusProspect(p));
+    const lc = $('[data-locate]', root); if (lc) lc.addEventListener('click', async () => {
+      const q = [p.adresse, p.commune].filter(Boolean).join(' ');
+      if (q.length < 4) { GA.ui.toast('Renseignez d’abord l’adresse et la commune.', 'err'); return; }
+      lc.disabled = true; lc.textContent = 'Localisation…';
+      const r = await run(async () => {
+        const d = await (await fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(q))).json();
+        const f = d.features && d.features[0];
+        if (!f || f.properties.score < 0.5) throw new Error('Adresse introuvable : précisez-la (numéro, rue, commune).');
+        return GA.svc.updateProspect(p.id, { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] });
+      }, 'Fiche positionnée');
+      if (r) { await GA.app.reload({ keepPanel: true }); render(); } else { lc.disabled = false; lc.textContent = 'Localiser depuis l’adresse'; }
+    });
     const fb = $('[data-foncier]', root); if (fb) fb.addEventListener('click', () => GA.foncierView.open(p.id));
     const eb = $('[data-ent]', root); if (eb) eb.addEventListener('click', () => GA.entreprisesView.open(p.zone_id));
     const mb = $('[data-map]', root); if (mb) mb.addEventListener('click', () => GA.mapView.focusZone(p.zone_id));
