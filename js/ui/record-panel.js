@@ -69,6 +69,9 @@ GA.panel = (function () {
         ${prop('Date de relance', 'date_relance', p, ed, 'date')}
       </div>
 
+      <h4>Score de l’emplacement</h4>
+      <div id="score-sec">${GA.scoreView.section(p, ed)}</div>
+
       <h4>Identification</h4>
       <div class="props">
         ${prop('Zone de la carte', 'zone_id', p, ed, 'select', zoneOptions(p.zone_id))}
@@ -116,6 +119,7 @@ GA.panel = (function () {
     bind(p);
     autosize();
     GA.docsView.mount($('#docs'), p, ed);
+    GA.scoreView.bind($('#score-sec'), p, render);
   }
 
   function autosize() { $$('#panel textarea').forEach(t => { if (t.id === 'ex-text') return; t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }); }

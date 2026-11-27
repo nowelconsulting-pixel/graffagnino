@@ -19,6 +19,7 @@
     <nav class="nav" aria-label="Menu principal">
       <a href="#bord" data-route="bord">Tableau de bord</a>
       <a href="#carte" data-route="carte">Carte</a>
+      <a href="#opp" data-route="opp">Opportunités</a>
       <a href="#crm" data-route="crm">CRM</a>
       <a href="#relances" data-route="relances">Relances <span class="nav-badge" id="nav-relances" hidden></span></a>
       <a href="#admin" data-route="admin" hidden>Administration</a>
@@ -43,6 +44,11 @@
     </div>
     <div class="toolbar" id="crm-toolbar"></div>
     <div id="crm-body"></div>
+  </section>
+
+  <section id="view-opp" class="view page" hidden>
+    <div class="page-h"><div><h1>Opportunités</h1><span class="muted">Zones de l’étude et emplacements repérés, classés avec le même barème</span></div></div>
+    <div id="opp-body"></div>
   </section>
 
   <section id="view-relances" class="view page" hidden>
@@ -92,6 +98,7 @@
 <script src="js/services/entreprises.js"></script>
 <script src="js/services/export-xlsx.js"></script>
 <script src="js/services/images.js"></script>
+<script src="js/services/moteur.js"></script>
 <!-- Interface -->
 <script src="js/ui/dom.js"></script>
 <script src="js/ui/login.js"></script>
@@ -104,6 +111,8 @@
 <script src="js/ui/documents-view.js"></script>
 <script src="js/ui/visite-view.js"></script>
 <script src="js/ui/foncier-view.js"></script>
+<script src="js/ui/score-view.js"></script>
+<script src="js/ui/opportunites-view.js"></script>
 <script src="js/ui/dashboard-view.js"></script>
 <script src="js/app.js"></script>
 </body>

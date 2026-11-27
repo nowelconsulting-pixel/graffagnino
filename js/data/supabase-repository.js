@@ -9,6 +9,7 @@ GA.createSupabaseRepository = function (client) {
     'decideur_fonction', 'telephone', 'email', 'prochaine_action', 'date_relance', 'notes'];
   const PROFIL = ['nom', 'fonction', 'telephone', 'role', 'actif'];
   const BUCKET = 'documents';
+  const MOTEUR_ABSENT = 'Moteur de score pas encore activé : exécutez supabase/004_moteur.sql dans Supabase.';
   const DOCS_ABSENTS = 'Photos et documents pas encore activés : exécutez supabase/002_documents_visites.sql dans Supabase.';
 
   function fromDb(p) {
@@ -32,6 +33,7 @@ GA.createSupabaseRepository = function (client) {
     if (/row-level security|permission denied/i.test(m)) return 'Action non autorisée pour votre rôle.';
     if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Connexion au serveur impossible. Vérifiez votre connexion internet.';
     if (/jwt expired|invalid jwt/i.test(m)) return 'Votre session a expiré : reconnectez-vous.';
+    if (/'(analyse|terrain_\w+)' column|column .*\b(analyse|terrain_\w+)\b/i.test(m)) return 'Moteur de score pas encore activé : exécutez supabase/004_moteur.sql dans Supabase.';
     if (/'(lat|lon)' column|column .*\b(lat|lon)\b/i.test(m)) return 'Position des fiches pas encore activée : exécutez supabase/003_position_fiches.sql dans Supabase.';
     return m;
   }
@@ -102,6 +104,17 @@ GA.createSupabaseRepository = function (client) {
     async deleteExchange(id) {
       const rows = await q(client.from('exchanges').delete().eq('id', id).select('id'));
       if (!rows.length) throw new Error('Action non autorisée ou échange introuvable.');
+    },
+
+    /* ---- Réglages partagés (table parametres) ---- */
+    async getParametre(cle) {
+      const { data, error } = await client.from('parametres').select('valeur').eq('cle', cle).maybeSingle();
+      if (error) throw new Error(message(error));
+      return data ? data.valeur : null;
+    },
+    async setParametre(cle, valeur) {
+      const { error } = await client.from('parametres').upsert({ cle, valeur, updated_at: new Date().toISOString() });
+      if (error) throw new Error(/could not find the table|does not exist/i.test(error.message) ? MOTEUR_ABSENT : message(error));
     },
 
     /* ---- Photos et documents (table documents + stockage privé « documents ») ---- */

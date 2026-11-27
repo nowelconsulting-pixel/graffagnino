@@ -5,7 +5,7 @@ GA.store = { prospects: [], users: [] };
 
 GA.app = (function () {
   const { $, $$, esc, avatar } = GA.ui;
-  const ROUTES = ['carte', 'crm', 'relances', 'bord', 'admin'];
+  const ROUTES = ['carte', 'opp', 'crm', 'relances', 'bord', 'admin'];
   let route = null;
 
   async function reload(opts) {
@@ -15,6 +15,7 @@ GA.app = (function () {
     if (route === 'admin') GA.adminView.render();
     if (route === 'relances') GA.relancesView.render();
     if (route === 'bord') GA.dashboardView.render();
+    if (route === 'opp') GA.opportunitesView.render();
     GA.relancesView.badge();
     GA.mapView.sendCounts();
     if (!(opts && opts.keepPanel) && GA.panel.current() && !GA.store.prospects.some(p => p.id === GA.panel.current())) GA.panel.close();
@@ -40,6 +41,7 @@ GA.app = (function () {
     if (r === 'admin') GA.adminView.render();
     if (r === 'relances') GA.relancesView.render();
     if (r === 'bord') GA.dashboardView.render();
+    if (r === 'opp') GA.opportunitesView.render();
   }
 
   async function onHash() {

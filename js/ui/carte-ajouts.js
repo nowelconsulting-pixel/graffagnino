@@ -134,7 +134,11 @@
           nom, lat, lon, zone_id: nz && nz.d <= 1500 ? nz.z.id : '',
           adresse: addr ? addr.adresse : '', commune: addr ? addr.commune : (nz && nz.d <= 1500 ? nz.z.com : ''),
         }), 'Fiche créée : ' + nom);
-        if (p) { map.removeLayer(marker); if (marker === found) found = null; await GA.app.reload(); GA.app.openProspect(p.id); }
+        if (p) {
+          map.removeLayer(marker); if (marker === found) found = null; await GA.app.reload(); GA.app.openProspect(p.id);
+          // Score calculé en arrière-plan (sans bloquer) ; visible ensuite dans la fiche et dans Opportunités.
+          GA.scoreView.analyserFiche(p).then(async () => { await GA.app.reload({ keepPanel: true }); if (GA.panel.current() === p.id) GA.panel.open(p.id); }).catch(() => {});
+        }
         else { btn.disabled = false; btn.textContent = 'Créer la fiche'; }
       });
     };
@@ -160,7 +164,9 @@
     (GA.store.prospects || []).filter(p => p.lat != null && p.lon != null).forEach(p => {
       const s = GA.ui.statut(p.statut);
       const mk = L.marker([p.lat, p.lon], { icon: pinIcon(s.color), title: p.nom }).addTo(layer);
+      const f = p.analyse && GA.moteur ? GA.moteur.scoreFinal(p.analyse, p) : null;
       mk.bindPopup(`<div class="ga-pop"><b>${esc(p.nom)}</b><div class="muted">${esc(s.label)}${p.zone_id ? ' · zone ' + esc(p.zone_id) : ''}${p.commune ? ' · ' + esc(p.commune) : ''}</div>
+        ${f ? `<div style="margin-top:4px">Score <b>${f.total}</b>/100 · priorité ${f.priorite}</div>` : ''}
         ${p.prochaine_action ? `<div style="margin-top:4px">${esc(p.prochaine_action)}</div>` : ''}<button type="button" data-open>Ouvrir la fiche</button></div>`);
       mk.on('popupopen', () => { const b = mk.getPopup().getElement().querySelector('[data-open]'); if (b) b.onclick = () => GA.app.openProspect(p.id); });
     });

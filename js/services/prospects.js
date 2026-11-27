@@ -9,7 +9,8 @@ GA.svc = (function () {
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const FIELDS = ['nom', 'zone_id', 'adresse', 'commune', 'statut', 'proprietaire_nom', 'proprietaire_type', 'decideur_nom',
-    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes', 'lat', 'lon'];
+    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes', 'lat', 'lon',
+    'analyse', 'terrain_acces', 'terrain_visibilite', 'terrain_attractivite'];
 
   function zone(id) { return GA.ZONES.find(z => z.id === id) || null; }
 

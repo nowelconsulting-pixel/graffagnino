@@ -303,6 +303,33 @@ tr.inactive td{color:var(--grey)}
 .fc-owner .btn{justify-self:start;margin-top:4px}
 .fc .leaflet-control-layers{font-size:12px}
 
+/* Score des emplacements */
+.score-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px}
+.score-head{display:flex;gap:12px;align-items:center}
+.score-badge{flex:none;display:inline-flex;align-items:baseline;gap:3px;border-radius:8px;padding:4px 10px;background:color-mix(in srgb,var(--c) 14%,#fff);color:var(--c)}
+.score-badge b{font-size:24px;line-height:1.1}
+.score-badge small{font-size:11.5px;font-weight:600}
+.score-meta{font-size:13px;min-width:0}
+.score-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.score-det{width:100%;border-collapse:collapse;font-size:13px}
+.score-det td{padding:5px 2px;border-bottom:1px solid #eef0f2;vertical-align:top}
+.score-det .pts{text-align:right;font-weight:700;white-space:nowrap}
+.score-det .pts small{font-weight:400;color:var(--mute)}
+.terrain{display:grid;gap:4px}
+.tfld{display:grid;grid-template-columns:170px minmax(0,1fr);align-items:center;gap:8px;font-size:13px}
+.tfld span{color:var(--mute)}
+.tfld select{border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#fff}
+.opp-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.opp-tools select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;min-height:34px}
+.opp-table td{vertical-align:middle}
+.opp-table .rang{color:var(--mute);font-variant-numeric:tabular-nums;width:36px}
+.opp-bar{display:inline-block;height:8px;border-radius:4px;background:var(--c);vertical-align:middle;margin-left:6px}
+.src-tag{font-size:11px;padding:1px 6px;border-radius:4px;background:var(--soft);color:var(--mute);white-space:nowrap}
+.src-tag.live{background:#e6eefb;color:#1a4f9c}
+.reglages{display:grid;gap:8px;font-size:13px}
+.reglages .site{display:grid;grid-template-columns:minmax(0,1fr) 90px 90px auto auto auto;gap:6px;align-items:center}
+.reglages input{border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-width:0}
+
 /* Petits écrans */
 @media (max-width:900px){
   body.panel-open .page{padding-right:24px}
@@ -312,6 +339,8 @@ tr.inactive td{color:var(--grey)}
   .bord-grid{grid-template-columns:1fr}
   .fc{grid-template-columns:1fr;grid-template-rows:minmax(300px,1fr) auto}
   .fc-side{max-height:40vh}
+  .tfld{grid-template-columns:1fr}
+  .reglages .site{grid-template-columns:1fr 1fr}
 }
 @media (max-width:600px){
   .topbar{gap:8px;padding:0 8px}
@@ -349,6 +378,7 @@ tr.inactive td{color:var(--grey)}
     <nav class="nav" aria-label="Menu principal">
       <a href="#bord" data-route="bord">Tableau de bord</a>
       <a href="#carte" data-route="carte">Carte</a>
+      <a href="#opp" data-route="opp">Opportunités</a>
       <a href="#crm" data-route="crm">CRM</a>
       <a href="#relances" data-route="relances">Relances <span class="nav-badge" id="nav-relances" hidden></span></a>
       <a href="#admin" data-route="admin" hidden>Administration</a>
@@ -373,6 +403,11 @@ tr.inactive td{color:var(--grey)}
     </div>
     <div class="toolbar" id="crm-toolbar"></div>
     <div id="crm-body"></div>
+  </section>
+
+  <section id="view-opp" class="view page" hidden>
+    <div class="page-h"><div><h1>Opportunités</h1><span class="muted">Zones de l’étude et emplacements repérés, classés avec le même barème</span></div></div>
+    <div id="opp-body"></div>
   </section>
 
   <section id="view-relances" class="view page" hidden>
@@ -527,6 +562,7 @@ GA.createSupabaseRepository = function (client) {
     'decideur_fonction', 'telephone', 'email', 'prochaine_action', 'date_relance', 'notes'];
   const PROFIL = ['nom', 'fonction', 'telephone', 'role', 'actif'];
   const BUCKET = 'documents';
+  const MOTEUR_ABSENT = 'Moteur de score pas encore activé : exécutez supabase/004_moteur.sql dans Supabase.';
   const DOCS_ABSENTS = 'Photos et documents pas encore activés : exécutez supabase/002_documents_visites.sql dans Supabase.';
 
   function fromDb(p) {
@@ -550,6 +586,7 @@ GA.createSupabaseRepository = function (client) {
     if (/row-level security|permission denied/i.test(m)) return 'Action non autorisée pour votre rôle.';
     if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Connexion au serveur impossible. Vérifiez votre connexion internet.';
     if (/jwt expired|invalid jwt/i.test(m)) return 'Votre session a expiré : reconnectez-vous.';
+    if (/'(analyse|terrain_\w+)' column|column .*\b(analyse|terrain_\w+)\b/i.test(m)) return 'Moteur de score pas encore activé : exécutez supabase/004_moteur.sql dans Supabase.';
     if (/'(lat|lon)' column|column .*\b(lat|lon)\b/i.test(m)) return 'Position des fiches pas encore activée : exécutez supabase/003_position_fiches.sql dans Supabase.';
     return m;
   }
@@ -620,6 +657,17 @@ GA.createSupabaseRepository = function (client) {
     async deleteExchange(id) {
       const rows = await q(client.from('exchanges').delete().eq('id', id).select('id'));
       if (!rows.length) throw new Error('Action non autorisée ou échange introuvable.');
+    },
+
+    /* ---- Réglages partagés (table parametres) ---- */
+    async getParametre(cle) {
+      const { data, error } = await client.from('parametres').select('valeur').eq('cle', cle).maybeSingle();
+      if (error) throw new Error(message(error));
+      return data ? data.valeur : null;
+    },
+    async setParametre(cle, valeur) {
+      const { error } = await client.from('parametres').upsert({ cle, valeur, updated_at: new Date().toISOString() });
+      if (error) throw new Error(/could not find the table|does not exist/i.test(error.message) ? MOTEUR_ABSENT : message(error));
     },
 
     /* ---- Photos et documents (table documents + stockage privé « documents ») ---- */
@@ -748,7 +796,8 @@ GA.svc = (function () {
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const FIELDS = ['nom', 'zone_id', 'adresse', 'commune', 'statut', 'proprietaire_nom', 'proprietaire_type', 'decideur_nom',
-    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes', 'lat', 'lon'];
+    'decideur_fonction', 'telephone', 'email', 'responsable_id', 'prochaine_action', 'date_relance', 'notes', 'lat', 'lon',
+    'analyse', 'terrain_acces', 'terrain_visibilite', 'terrain_attractivite'];
 
   function zone(id) { return GA.ZONES.find(z => z.id === id) || null; }
 
@@ -1201,6 +1250,268 @@ GA.images = (function () {
   }
 
   return { reduce };
+})();
+
+</script>
+<script>
+/* js/services/moteur.js */
+/* Moteur de score des emplacements : recalcule en direct, pour n'importe quel point de France,
+   la grille de l'étude du 25/11 (même barème) avec des services publics :
+     environnement commercial 30 · concurrence 20 · emplois ≤ 500 m 15 · trafic 15 · gare ≤ 800 m 10 · population à 10 min 10
+   + distance et temps par la route depuis le(s) laboratoire(s), malus de proximité d'un distributeur existant
+   (réglable, jamais une exclusion) et bonus / malus terrain saisis sur la fiche.
+   Sources : SIRENE (recherche-entreprises.api.gouv.fr), IGN Géoplateforme (itinéraire, isochrone),
+   API Carto IGN (communes et populations INSEE), SNCF Open Data (data/gares.json), DGITM (data/tmja.json). */
+window.GA = window.GA || {};
+
+GA.moteur = (function () {
+  const VERSION = 1;
+  const SIRENE = 'https://recherche-entreprises.api.gouv.fr/near_point';
+  const NAV = 'https://data.geopf.fr/navigation';
+  const COMMUNES = 'https://apicarto.ign.fr/api/limites-administratives/commune';
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+  const dist = (a, b, c, d) => GA.entreprises.distanceM(a, b, c, d);
+  const fr = n => Math.round(n).toLocaleString('fr-FR');
+
+  /* ---------- Réglages (table parametres, sinon valeurs par défaut) ---------- */
+  const DEFAUT = {
+    sites: [{ nom: 'Laboratoire et distributeur pilote (Baillet-en-France)', lat: 49.06365, lon: 2.32388, laboratoire: true, distributeur: true }],
+    distanceMaxKm: 10,
+    proximite: [{ km: 1.5, pts: -10 }, { km: 3, pts: -5 }],   // malus si un de nos distributeurs est à moins de…
+    concurrents: [],                                          // distributeurs de pizzas concurrents [{ nom, lat, lon }]
+  };
+  let reglages = null;
+  async function getReglages() {
+    if (reglages) return reglages;
+    reglages = JSON.parse(JSON.stringify(DEFAUT));
+    try {
+      const v = await GA.repo.getParametre('moteur');
+      if (v) reglages = Object.assign(reglages, v);
+    } catch (e) { /* table absente : valeurs par défaut */ }
+    return reglages;
+  }
+  async function setReglages(v) { await GA.repo.setParametre('moteur', v); reglages = Object.assign(JSON.parse(JSON.stringify(DEFAUT)), v); }
+
+  /* ---------- Données statiques ---------- */
+  const cache = {};
+  const loadJson = (url) => cache[url] || (cache[url] = fetch(url).then(r => { if (!r.ok) throw new Error(url); return r.json(); }).catch(e => { delete cache[url]; throw e; }));
+
+  async function getJson(url, essais = 6) {
+    for (let i = 0; i < essais; i++) {
+      try {
+        const r = await fetch(url);
+        if (r.ok) return await r.json();
+        if (r.status !== 429 && r.status < 500) throw new Error('HTTP ' + r.status);
+      } catch (e) { if (i === essais - 1) throw e; }
+      await pause(700 * (i + 1));
+    }
+    throw new Error('Service indisponible');
+  }
+
+  /* ---------- SIRENE : établissements autour du point ---------- */
+  async function sirene(lat, lon, radiusKm, extra, maxPages) {
+    const rows = []; let page = 1, pages = 1, total = 0;
+    do {
+      const q = new URLSearchParams({ lat, long: lon, radius: radiusKm, per_page: 25, page, ...extra });
+      const d = await getJson(SIRENE + '?' + q);
+      pages = d.total_pages || 1; total = d.total_results || 0;
+      for (const r of d.results || []) {
+        for (const e of (r.matching_etablissements && r.matching_etablissements.length ? r.matching_etablissements : [])) {
+          if (e.etat_administratif !== 'A') continue;
+          rows.push({ nom: (r.nom_complet || '') + ' ' + ((e.liste_enseignes || []).join(' ')) + ' ' + (e.nom_commercial || ''), naf: e.activite_principale || r.activite_principale || '',
+            section: r.section_activite_principale || '', tranche: e.tranche_effectif_salarie || '', lat: +e.latitude, lon: +e.longitude });
+        }
+      }
+      page++;
+      if (page <= Math.min(pages, maxPages)) await pause(160);
+    } while (page <= Math.min(pages, maxPages));
+    return { rows, complet: pages <= maxPages, total };
+  }
+
+  // Milieux des tranches d'effectif INSEE.
+  const MILIEU = { '00': 0, '01': 1.5, '02': 4, '03': 7.5, 11: 15, 12: 35, 21: 75, 22: 150, 31: 225, 32: 375, 41: 750, 42: 1500, 51: 3500, 52: 7500, 53: 10000 };
+  const GRANDES_SURFACES = /^47\.11[BCDEF]$/;   // supérettes, supermarchés, hypermarchés, magasins multi-commerces
+
+  /* ---------- Géométrie ---------- */
+  function inRing(lon, lat, ring) {
+    let ins = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins;
+    }
+    return ins;
+  }
+  function inGeom(lon, lat, g) {
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    return polys.some(p => inRing(lon, lat, p[0]) && !p.slice(1).some(h => inRing(lon, lat, h)));
+  }
+  function bbox(g) {
+    let a = [180, 90, -180, -90];
+    const walk = c => typeof c[0] === 'number' ? (a = [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[0]), Math.max(a[3], c[1])]) : c.forEach(walk);
+    walk(g.coordinates); return a;
+  }
+  function segDist(lat, lon, a1, o1, a2, o2) {
+    // distance point–segment en mètres (projection locale)
+    const k = 111320 * Math.cos(lat * Math.PI / 180);
+    const px = (lon - o1) * k, py = (lat - a1) * 110540, sx = (o2 - o1) * k, sy = (a2 - a1) * 110540;
+    const l2 = sx * sx + sy * sy; const t = l2 ? Math.max(0, Math.min(1, (px * sx + py * sy) / l2)) : 0;
+    return Math.hypot(px - t * sx, py - t * sy);
+  }
+
+  /* ---------- Critères ---------- */
+  async function critereSirene(lat, lon) {
+    const s = await sirene(lat, lon, 0.5, {}, 20);
+    const commerces = s.rows.filter(r => r.section === 'G' || r.section === 'I');
+    const gs = s.rows.filter(r => GRANDES_SURFACES.test(r.naf));
+    const n = commerces.length;
+    const niveau = (gs.length && n >= 20) || n >= 50 ? 'Fort' : (gs.length || n >= 15) ? 'Moyen' : 'Faible';
+    const env = { k: 'env', lab: 'Environnement commercial (≤ 500 m)', mx: 30, st: s.complet ? 'connu' : 'incomplet',
+      val: `${niveau} · ${s.complet ? '' : '≥ '}${n} commerce(s) et restaurant(s)${gs.length ? ' · ' + gs.length + ' grande(s) surface(s)' : ''}`,
+      pts: niveau === 'Fort' ? 30 : niveau === 'Moyen' ? 15 : 0,
+      rule: 'Fort 30 (grande surface et ≥ 20 commerces, ou ≥ 50) · moyen 15 (grande surface ou ≥ 15) · faible 0',
+      note: 'Établissements actifs SIRENE, sections commerce (G) et hébergement-restauration (I)' };
+    const emplois = s.rows.reduce((t, r) => t + (MILIEU[r.tranche] || 0), 0);
+    const emp = { k: 'emp', lab: 'Emplois ≤ 500 m', mx: 15, st: 'connu', min: !s.complet,
+      val: (s.complet ? '' : '≥ ') + fr(emplois), pts: emplois >= 500 ? 15 : emplois >= 150 ? 9 : 3,
+      rule: '≥ 500 : 15 · 150–499 : 9 · moins : 3', note: 'Estimation SIRENE (milieux de tranches d’effectif)' + (s.complet ? '' : ', plafonnée à 500 entreprises lues') };
+    return [env, emp];
+  }
+
+  async function critereConcurrence(lat, lon, R) {
+    const s = await sirene(lat, lon, 1, { activite_principale: '56.10A,56.10C' }, 8);
+    const piz = s.rows.filter(r => /PIZZ/i.test(r.nom));
+    const n = piz.length;
+    let pts = n === 0 ? 20 : n <= 2 ? 14 : n <= 5 ? 8 : 3;
+    let distri = '';
+    const proches = (R.concurrents || []).map(c => ({ c, d: dist(lat, lon, c.lat, c.lon) })).sort((a, b) => a.d - b.d);
+    if (proches.length && proches[0].d < 1500) { pts = 0; distri = ` · distributeur concurrent ${proches[0].c.nom} à ${fr(proches[0].d)} m`; }
+    else if (proches.length && proches[0].d < 3000) { pts = Math.max(0, pts - 8); distri = ` · distributeur concurrent ${proches[0].c.nom} à ${(proches[0].d / 1000).toFixed(1).replace('.', ',')} km`; }
+    return { k: 'conc', lab: 'Concurrence directe', mx: 20, st: 'incomplet', pts,
+      val: `${n} pizzeria(s) ≤ 1 km${n ? ' (' + piz.slice(0, 3).map(r => r.nom.trim().split(/\s+/).slice(0, 3).join(' ')).join(', ') + (n > 3 ? '…' : '') + ')' : ''}${distri}`,
+      rule: '0 pizzeria 20 · 1–2 : 14 · 3–5 : 8 · plus : 3 ; distributeur de pizzas < 1,5 km : 0 ; 1,5–3 km : −8',
+      note: 'Comptage par le nom (« PIZZ ») dans SIRENE : peut omettre des pizzerias' };
+  }
+
+  async function critereTrafic(lat, lon) {
+    const t = await loadJson('data/tmja.json');
+    let best = null;
+    for (const [route, a1, o1, a2, o2, v] of t.troncons) {
+      if (Math.abs(a1 - lat) > 0.02 && Math.abs(a2 - lat) > 0.02) continue;
+      const d = segDist(lat, lon, a1, o1, a2, o2);
+      if (d <= 500 && (!best || v > best.v)) best = { route, v, d };
+    }
+    if (!best) return { k: 'tm', lab: 'Trafic routier', mx: 15, st: 'manquant', pts: null, val: 'non mesuré',
+      rule: '≥ 40 000 : 15 · 20 000–39 999 : 10 · moins : 5', note: 'Aucune route nationale comptée à moins de 500 m (routes départementales non publiées) : 0 à 15 points possibles' };
+    return { k: 'tm', lab: 'Trafic routier', mx: 15, st: 'connu', pts: best.v >= 40000 ? 15 : best.v >= 20000 ? 10 : 5,
+      val: `${best.route} ${fr(best.v)} véh./j (à ${fr(best.d)} m)`, rule: '≥ 40 000 : 15 · 20 000–39 999 : 10 · moins : 5', note: t.source };
+  }
+
+  async function critereGare(lat, lon) {
+    const g = await loadJson('data/gares.json');
+    let best = null;
+    for (const [nom, a, o, v] of g.gares) {
+      if (Math.abs(a - lat) > 0.01) continue;
+      const d = dist(lat, lon, a, o);
+      if (d <= 800 && (!best || (v || 0) > (best.v || 0))) best = { nom, d, v };
+    }
+    const rule = '≥ 1,5 M voyageurs : 10 · 0,5–1,5 M : 6 · moins : 3 · aucune : 0';
+    if (!best) return { k: 'gare', lab: 'Gare ≤ 800 m', mx: 10, st: 'connu', pts: 0, val: 'aucune', rule };
+    const v = best.v || 0;
+    return { k: 'gare', lab: 'Gare ≤ 800 m', mx: 10, st: 'connu', pts: v >= 1.5e6 ? 10 : v >= 5e5 ? 6 : 3,
+      val: `${best.nom} (${fr(best.d)} m, ${(v / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} M)`, rule, note: g.source };
+  }
+
+  async function criterePopulation(lat, lon) {
+    const iso = await getJson(`${NAV}/isochrone?resource=bdtopo-valhalla&profile=car&costType=time&costValue=10&timeUnit=minute&point=${lon},${lat}&direction=departure&geometryFormat=geojson`);
+    const g = iso.geometry;
+    const ring = (g.type === 'Polygon' ? g.coordinates[0] : g.coordinates[0][0]);
+    const step = Math.max(1, Math.floor(ring.length / 80));
+    const simple = ring.filter((_, i) => i % step === 0).map(([x, y]) => [+x.toFixed(4), +y.toFixed(4)]); simple.push(simple[0]);
+    const d = await getJson(COMMUNES + '?geom=' + encodeURIComponent(JSON.stringify({ type: 'Polygon', coordinates: [simple] })));
+    let pop = 0;
+    for (const f of d.features || []) {
+      const p = +f.properties.population || 0; if (!p) continue;
+      // Part de la commune dans l'isochrone : échantillonnage régulier (densité supposée uniforme).
+      const [x0, y0, x1, y1] = bbox(f.geometry); let tot = 0, dans = 0; const N = 14;
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const x = x0 + (x1 - x0) * (i + 0.5) / N, y = y0 + (y1 - y0) * (j + 0.5) / N;
+        if (!inGeom(x, y, f.geometry)) continue; tot++; if (inGeom(x, y, g)) dans++;
+      }
+      if (tot) pop += p * dans / tot;
+    }
+    return { k: 'pop', lab: 'Population à 10 min (indicatif)', mx: 10, st: 'connu', pts: pop >= 35000 ? 10 : pop >= 15000 ? 6 : 3,
+      val: fr(pop), rule: '≥ 35 000 : 10 · 15 000–34 999 : 6 · moins : 3', note: 'Isochrone IGN 10 min en voiture × populations INSEE réparties uniformément sur chaque commune' };
+  }
+
+  async function distanceLabo(lat, lon, R) {
+    const labos = R.sites.filter(s => s.laboratoire);
+    let best = null;
+    for (const s of labos) {
+      const d = await getJson(`${NAV}/itineraire?resource=bdtopo-valhalla&profile=car&optimization=shortest&start=${s.lon},${s.lat}&end=${lon},${lat}&distanceUnit=kilometer&timeUnit=minute&getSteps=false&geometryFormat=geojson`);
+      if (!best || d.distance < best.km) best = { site: s.nom, km: +d.distance.toFixed(2), min: Math.round(d.duration) };
+    }
+    return best;
+  }
+
+  /* ---------- Analyse complète ---------- */
+  async function analyser(lat, lon, onStep) {
+    const R = await getReglages();
+    const step = (t) => { if (onStep) onStep(t); };
+    step('Distance par la route…');
+    const labo = await distanceLabo(lat, lon, R).catch(() => null);
+    step('Commerces et emplois (SIRENE)…');
+    const [env, emp] = await critereSirene(lat, lon);
+    step('Concurrence…');
+    const conc = await critereConcurrence(lat, lon, R);
+    step('Trafic, gare…');
+    const tm = await critereTrafic(lat, lon), gare = await critereGare(lat, lon);
+    step('Population à 10 minutes…');
+    const pop = await criterePopulation(lat, lon).catch(() => ({ k: 'pop', lab: 'Population à 10 min (indicatif)', mx: 10, st: 'manquant', pts: null, val: 'non calculée', rule: '≥ 35 000 : 10 · 15 000–34 999 : 6 · moins : 3' }));
+    const det = [env, conc, emp, tm, gare, pop];
+    const connus = det.filter(d => d.pts != null);
+    const brut = connus.reduce((t, d) => t + d.pts, 0);
+    const couverture = connus.reduce((t, d) => t + d.mx, 0);
+    const manquants = det.filter(d => d.pts == null).reduce((t, d) => t + d.mx, 0) + (emp.min ? emp.mx - emp.pts : 0);
+    // Malus de proximité : nos distributeurs existants (jamais une exclusion).
+    const malus = [];
+    const distris = R.sites.filter(s => s.distributeur).map(s => ({ s, d: dist(lat, lon, s.lat, s.lon) })).sort((a, b) => a.d - b.d);
+    if (distris.length) {
+      const regle = (R.proximite || []).slice().sort((a, b) => a.km - b.km).find(r => distris[0].d < r.km * 1000);
+      if (regle) malus.push({ lab: `Distributeur existant à ${(distris[0].d / 1000).toFixed(1).replace('.', ',')} km (${distris[0].s.nom})`, pts: regle.pts });
+    }
+    return {
+      v: VERSION, date: new Date().toISOString(), lat: +lat.toFixed(6), lon: +lon.toFixed(6),
+      det, brut, couverture, score: couverture ? Math.round(brut / couverture * 100) : 0,
+      lo: brut, hi: Math.min(100, brut + manquants), labo, distanceMaxKm: R.distanceMaxKm,
+      conforme: labo ? labo.km <= R.distanceMaxKm : null, alerte: labo ? Math.abs(labo.km - R.distanceMaxKm) <= 0.5 : false,
+      malus,
+    };
+  }
+
+  /* ---------- Bonus / malus terrain (saisis sur la fiche) ---------- */
+  const TERRAIN = {
+    terrain_acces:        { lab: 'Accès', options: { direct: ['Direct, facile', 5], moyen: ['Correct', 0], difficile: ['Difficile, détour', -10] } },
+    terrain_visibilite:   { lab: 'Visibilité depuis l’axe', options: { bonne: ['Bonne', 5], moyenne: ['Moyenne', 0], faible: ['Faible, caché', -5] } },
+    terrain_attractivite: { lab: 'Attractivité du lieu', options: { forte: ['Forte, lieu de passage', 5], moyenne: ['Moyenne', 0], faible: ['Faible', -5] } },
+  };
+  function terrain(p) {
+    return Object.entries(TERRAIN).map(([k, c]) => p && p[k] && c.options[p[k]] ? { lab: c.lab + ' : ' + c.options[p[k]][0].toLowerCase(), pts: c.options[p[k]][1] } : null).filter(Boolean);
+  }
+
+  // Score final = score étude (sur 100, données connues) + malus de proximité + bonus / malus terrain, borné 0–100.
+  function scoreFinal(a, p) {
+    if (!a) return null;
+    const ajust = [...(a.malus || []), ...terrain(p)];
+    const total = Math.max(0, Math.min(100, a.score + ajust.reduce((t, x) => t + x.pts, 0)));
+    return { total, ajust, priorite: total >= 60 ? 1 : total >= 45 ? 2 : 3 };
+  }
+
+  // Résultat équivalent pour une zone de l'étude du 25/11 (score figé de la carte).
+  function depuisZone(z) {
+    return { etude: true, score: z.sc, lo: z.lo, hi: z.hi, couverture: z.cov, labo: { km: z.vd, site: 'Laboratoire' }, conforme: z.conf, alerte: z.alert, malus: [], date: '2026-11-25' };
+  }
+
+  return { analyser, scoreFinal, depuisZone, getReglages, setReglages, TERRAIN, DEFAUT, inGeom };
 })();
 
 </script>
@@ -1681,6 +1992,9 @@ GA.panel = (function () {
         ${prop('Date de relance', 'date_relance', p, ed, 'date')}
       </div>
 
+      <h4>Score de l’emplacement</h4>
+      <div id="score-sec">${GA.scoreView.section(p, ed)}</div>
+
       <h4>Identification</h4>
       <div class="props">
         ${prop('Zone de la carte', 'zone_id', p, ed, 'select', zoneOptions(p.zone_id))}
@@ -1728,6 +2042,7 @@ GA.panel = (function () {
     bind(p);
     autosize();
     GA.docsView.mount($('#docs'), p, ed);
+    GA.scoreView.bind($('#score-sec'), p, render);
   }
 
   function autosize() { $$('#panel textarea').forEach(t => { if (t.id === 'ex-text') return; t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }); }
@@ -2493,6 +2808,255 @@ GA.foncierView = (function () {
 
 </script>
 <script>
+/* js/ui/score-view.js */
+/* Affichage du score d'un emplacement (fiche) et de son détail, lancement d'une analyse. */
+window.GA = window.GA || {};
+
+GA.scoreView = (function () {
+  const { $, $$, esc, run, fmtDate } = GA.ui;
+  const PRIO = { 1: '#1f6fd1', 2: '#f08c00', 3: '#8a8f98' };
+  const ST = { connu: '', incomplet: ' <span class="tag warn">incomplet</span>', manquant: ' <span class="tag">non mesuré</span>' };
+
+  function badge(total, prio) {
+    return `<span class="score-badge" style="--c:${PRIO[prio]}"><b>${total}</b><small>/100 · P${prio}</small></span>`;
+  }
+
+  function detailHtml(a) {
+    if (!a || a.etude) return '';
+    return `<table class="score-det"><tbody>${a.det.map(d => `<tr><td>${esc(d.lab)}${ST[d.st] || ''}<div class="muted small">${esc(d.val)}</div></td>
+      <td class="pts">${d.pts == null ? '—' : d.pts}<small>/${d.mx}</small></td></tr>`).join('')}</tbody></table>
+      <p class="hint">Score affiché = points obtenus ÷ points mesurables × 100 (couverture ${a.couverture} %) ; fourchette ${a.lo}–${a.hi} selon les données manquantes. Barème de l’étude du 25/11.</p>`;
+  }
+
+  function resume(a, p) {
+    const f = GA.moteur.scoreFinal(a, p);
+    const labo = a.labo ? `${String(a.labo.km).replace('.', ',')} km par la route${a.labo.min != null ? ' · ' + a.labo.min + ' min' : ''}` : 'distance non calculée';
+    const conf = a.conforme == null ? '' : a.conforme ? `<span class="tag ok">≤ ${a.distanceMaxKm || 10} km du laboratoire</span>` : `<span class="tag out">au-delà de ${a.distanceMaxKm || 10} km</span>`;
+    return `<div class="score-head">${badge(f.total, f.priorite)}
+      <div class="score-meta"><div>Score de base <b>${a.score}</b> (fourchette ${a.lo}–${a.hi})${f.ajust.length ? ' · ' + f.ajust.map(x => `${x.pts > 0 ? '+' : ''}${x.pts} ${esc(x.lab)}`).join(' · ') : ''}</div>
+      <div class="muted small">${labo} ${conf}${a.alerte ? ' <span class="tag warn">à remesurer</span>' : ''} · calculé le ${fmtDate(a.date)}</div></div></div>`;
+  }
+
+  // Section « Score de l'emplacement » du panneau de fiche.
+  function section(p, ed) {
+    const a = p.analyse;
+    const terrain = Object.entries(GA.moteur.TERRAIN).map(([k, c]) => `<label class="tfld"><span>${esc(c.lab)}</span>
+      <select data-terrain="${k}" ${ed ? '' : 'disabled'}><option value="">Non évalué</option>${Object.entries(c.options).map(([v, [l, pts]]) =>
+        `<option value="${v}" ${p[k] === v ? 'selected' : ''}>${esc(l)} (${pts > 0 ? '+' : ''}${pts})</option>`).join('')}</select></label>`).join('');
+    const pos = p.lat != null && p.lon != null;
+    return `<div class="score-box">
+      ${a ? resume(a, p) : `<p class="muted small" style="margin:0">${pos ? 'Emplacement pas encore analysé.' : 'Positionnez la fiche (sur la carte ou depuis l’adresse) pour calculer son score.'}</p>`}
+      ${pos && ed ? `<div class="score-act"><button class="btn" data-analyse>${a ? 'Recalculer' : 'Calculer le score'}</button><span class="muted small" data-step></span>
+        ${a ? '<button class="link" data-det>Voir le détail</button>' : ''}</div>` : (a ? '<div class="score-act"><button class="link" data-det>Voir le détail</button></div>' : '')}
+      <div class="score-detail" hidden>${detailHtml(a)}</div>
+      <div class="terrain"><div class="muted small">Évaluation terrain (bonus / malus)</div>${terrain}</div>
+    </div>`;
+  }
+
+  async function analyserFiche(p, onStep) {
+    const a = await GA.moteur.analyser(p.lat, p.lon, onStep);
+    return GA.svc.updateProspect(p.id, { analyse: a });
+  }
+
+  function bind(root, p, rerender) {
+    const b = $('[data-analyse]', root);
+    if (b) b.addEventListener('click', async () => {
+      b.disabled = true; const st = $('[data-step]', root);
+      const r = await run(() => analyserFiche(p, t => { st.textContent = t; }), 'Score calculé');
+      st.textContent = '';
+      if (r) { await GA.app.reload({ keepPanel: true }); rerender(); } else b.disabled = false;
+    });
+    const d = $('[data-det]', root);
+    if (d) d.addEventListener('click', () => { const x = $('.score-detail', root); x.hidden = !x.hidden; d.textContent = x.hidden ? 'Voir le détail' : 'Masquer le détail'; });
+    $$('[data-terrain]', root).forEach(s => s.addEventListener('change', async () => {
+      const r = await run(() => GA.svc.updateProspect(p.id, { [s.dataset.terrain]: s.value }), 'Évaluation enregistrée');
+      if (r) { await GA.app.reload({ keepPanel: true }); rerender(); }
+    }));
+  }
+
+  return { section, bind, badge, detailHtml, resume, analyserFiche, PRIO };
+})();
+
+</script>
+<script>
+/* js/ui/opportunites-view.js */
+/* Onglet Opportunités : classement dynamique des 57 zones de l'étude et des emplacements repérés (fiches),
+   avec le même barème ; analyse en direct de n'importe quelle adresse (ailleurs en France aussi) ;
+   réglages du moteur (sites, distance maximale, malus de proximité). */
+window.GA = window.GA || {};
+
+GA.opportunitesView = (function () {
+  const { $, $$, esc, run, modal, zoneChip, statutPill } = GA.ui;
+  const LS = 'ga.zones.analyses';
+  const st = { source: '', conformes: false };
+  let R = null, zonesLive = {};
+  try { zonesLive = JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) {}
+  const saveLive = () => { try { localStorage.setItem(LS, JSON.stringify(zonesLive)); } catch (e) {} };
+  const km = v => v == null ? '—' : String(v).replace('.', ',') + ' km';
+
+  // Malus de proximité pour un score figé de l'étude (même règle que le moteur, distance à vol d'oiseau).
+  function malusEtude(lat, lon) {
+    const d = (R.sites || []).filter(s => s.distributeur).map(s => ({ s, d: GA.entreprises.distanceM(lat, lon, s.lat, s.lon) })).sort((a, b) => a.d - b.d)[0];
+    if (!d) return [];
+    const regle = (R.proximite || []).slice().sort((a, b) => a.km - b.km).find(r => d.d < r.km * 1000);
+    return regle ? [{ lab: `Distributeur existant à ${(d.d / 1000).toFixed(1).replace('.', ',')} km`, pts: regle.pts }] : [];
+  }
+
+  function lignes() {
+    const out = [];
+    for (const z of GA.ZONES) {
+      const live = zonesLive[z.id];
+      const a = live || Object.assign(GA.moteur.depuisZone(z), { malus: malusEtude(z.lat, z.lon) });
+      const fiches = GA.store.prospects.filter(p => p.zone_id === z.id);
+      out.push({ type: 'zone', id: z.id, nom: z.nom, commune: z.com, lat: z.lat, lon: z.lon, a, live: !!live, f: GA.moteur.scoreFinal(a, null), fiches });
+    }
+    for (const p of GA.store.prospects) {
+      if (p.lat == null || p.lon == null) continue;
+      out.push({ type: 'fiche', id: p.id, nom: p.nom, commune: p.commune, lat: p.lat, lon: p.lon, p, a: p.analyse, live: true, f: p.analyse ? GA.moteur.scoreFinal(p.analyse, p) : null });
+    }
+    return out.filter(l => (!st.source || l.type === st.source) && (!st.conformes || (l.a && l.a.conforme)))
+      .sort((x, y) => (y.f ? y.f.total : -1) - (x.f ? x.f.total : -1) || x.nom.localeCompare(y.nom));
+  }
+
+  function row(l, i) {
+    const f = l.f, a = l.a;
+    const score = f ? `${GA.scoreView.badge(f.total, f.priorite)}<span class="opp-bar" style="--c:${GA.scoreView.PRIO[f.priorite]};width:${f.total * 0.6}px"></span>` : '<span class="muted">à calculer</span>';
+    const ajust = f && f.ajust.length ? f.ajust.map(x => `${x.pts > 0 ? '+' : ''}${x.pts}`).join(' ') : '';
+    const src = l.type === 'zone' ? (l.live ? '<span class="src-tag live">Zone · calcul direct</span>' : '<span class="src-tag">Zone · étude 25/11</span>') : '<span class="src-tag live">Emplacement repéré</span>';
+    const crm = l.type === 'fiche' ? statutPill(l.p.statut) : (l.fiches.length ? `${l.fiches.length} fiche(s)` : '<span class="muted">—</span>');
+    const conf = a && a.conforme === false ? ' <span class="tag out">hors périmètre</span>' : a && a.alerte ? ' <span class="tag warn">à remesurer</span>' : '';
+    return `<tr data-i="${i}">
+      <td class="rang">${f ? i + 1 : ''}</td>
+      <td><b>${l.type === 'zone' ? zoneChip(l.id) + ' ' : ''}${esc(l.nom)}</b><div class="muted small">${esc(l.commune || '')} ${src}</div></td>
+      <td>${score}</td>
+      <td class="muted small">${a ? 'base ' + a.score : ''} ${ajust}</td>
+      <td>${a && a.labo ? km(a.labo.km) : '—'}${conf}</td>
+      <td>${crm}</td>
+      <td class="t-act">
+        <button class="btn ghost" data-act="calc">${l.type === 'fiche' ? (a ? 'Recalculer' : 'Calculer') : (l.live ? 'Recalculer' : 'Calcul direct')}</button>
+        ${l.type === 'fiche' ? '<button class="btn ghost" data-act="open">Fiche</button>' : ''}
+        <button class="btn ghost" data-act="map">Carte</button></td></tr>`;
+  }
+
+  async function render() {
+    R = await GA.moteur.getReglages();
+    const list = lignes();
+    window.__oppList = list;
+    const sansScore = GA.store.prospects.filter(p => p.lat != null && !p.analyse).length;
+    $('#opp-body').innerHTML = `
+      <div class="opp-tools">
+        <select id="opp-src"><option value="">Zones et emplacements</option><option value="zone" ${st.source === 'zone' ? 'selected' : ''}>Zones de l’étude</option><option value="fiche" ${st.source === 'fiche' ? 'selected' : ''}>Emplacements repérés</option></select>
+        <label class="chk"><input type="checkbox" id="opp-conf" ${st.conformes ? 'checked' : ''}> À moins de ${R.distanceMaxKm} km du laboratoire</label>
+        <span class="grow"></span>
+        ${sansScore ? `<button class="btn" id="opp-all">Calculer les ${sansScore} emplacement(s) sans score</button>` : ''}
+        <button class="btn" id="opp-addr">Analyser une adresse…</button>
+        ${GA.perm.isAdmin(GA.auth.current()) ? '<button class="btn ghost" id="opp-set">Réglages du moteur</button>' : ''}
+      </div>
+      <div class="table-wrap"><table class="crm-table stat-table opp-table"><thead><tr><th></th><th>Emplacement</th><th>Score</th><th>Détail</th><th>Distance labo</th><th>CRM</th><th></th></tr></thead>
+      <tbody>${list.map(row).join('')}</tbody></table></div>
+      <p class="hint">Score = barème de l’étude (environnement commercial 30, concurrence 20, emplois 15, trafic 15, gare 10, population 10), sur les données mesurables,
+        puis malus de proximité d’un de vos distributeurs et bonus / malus terrain de la fiche. Aucune zone n’est exclue : P1 ≥ 60, P2 45–59, P3 &lt; 45.
+        « Calcul direct » recalcule une zone de l’étude avec les données du jour (environ 15 secondes).</p>`;
+    $('#opp-src').addEventListener('change', e => { st.source = e.target.value; render(); });
+    $('#opp-conf').addEventListener('change', e => { st.conformes = e.target.checked; render(); });
+    const all = $('#opp-all'); if (all) all.addEventListener('click', () => calcAll(all));
+    $('#opp-addr').addEventListener('click', analyseAdresse);
+    const set = $('#opp-set'); if (set) set.addEventListener('click', reglages);
+    $$('#opp-body tr[data-i]').forEach(tr => {
+      const l = list[+tr.dataset.i];
+      $$('[data-act]', tr).forEach(b => b.addEventListener('click', () => action(l, b.dataset.act, b)));
+    });
+  }
+
+  async function action(l, act, b) {
+    if (act === 'open') return GA.app.openProspect(l.id);
+    if (act === 'map') return l.type === 'zone' ? GA.mapView.focusZone(l.id) : GA.mapView.focusProspect(l.p);
+    b.disabled = true; const label = b.textContent; b.textContent = 'Calcul…';
+    if (l.type === 'fiche') {
+      const r = await run(() => GA.scoreView.analyserFiche(l.p, t => { b.textContent = t; }), 'Score calculé : ' + l.nom);
+      if (r) await GA.app.reload(); else { b.disabled = false; b.textContent = label; }
+    } else {
+      const a = await run(() => GA.moteur.analyser(l.lat, l.lon, t => { b.textContent = t; }), 'Zone ' + l.id + ' recalculée');
+      if (a) { zonesLive[l.id] = a; saveLive(); render(); } else { b.disabled = false; b.textContent = label; }
+    }
+  }
+
+  async function calcAll(btn) {
+    const todo = GA.store.prospects.filter(p => p.lat != null && !p.analyse && GA.perm.canEditProspect(GA.auth.current(), p));
+    btn.disabled = true; let n = 0;
+    for (const p of todo) {
+      btn.textContent = `Calcul ${++n}/${todo.length}…`;
+      await run(() => GA.scoreView.analyserFiche(p));
+    }
+    GA.ui.toast(n + ' emplacement(s) calculé(s)'); await GA.app.reload();
+  }
+
+  // Analyse d'une adresse quelconque (y compris hors de la région) sans créer de fiche.
+  function analyseAdresse() {
+    const m = modal('Analyser une adresse', `
+      <form id="aa-form" class="fc-search"><input id="aa-q" type="search" placeholder="Ex. : 12 rue de Béthune, Lille" required><button class="btn primary">Analyser</button></form>
+      <div id="aa-res" style="margin-top:12px"></div>`, { wide: true });
+    $('#aa-form', m.el).addEventListener('submit', async e => {
+      e.preventDefault();
+      const q = $('#aa-q', m.el).value.trim(); if (!q) return;
+      const res = $('#aa-res', m.el); res.innerHTML = '<p class="muted">Recherche de l’adresse…</p>';
+      const out = await run(async () => {
+        const d = await (await fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(q))).json();
+        const f = d.features && d.features[0]; if (!f) throw new Error('Adresse introuvable.');
+        const [lon, lat] = f.geometry.coordinates;
+        const a = await GA.moteur.analyser(lat, lon, t => { res.innerHTML = `<p class="muted">${esc(f.properties.label)} · ${esc(t)}</p>`; });
+        return { a, f, lat, lon };
+      });
+      if (!out) { res.innerHTML = ''; return; }
+      res.innerHTML = `<p><b>${esc(out.f.properties.label)}</b></p>${GA.scoreView.resume(out.a, null)}${GA.scoreView.detailHtml(out.a)}
+        <div class="modal-actions"><button class="btn primary" id="aa-fiche">Créer une fiche ici</button></div>`;
+      $('#aa-fiche', m.el).addEventListener('click', async () => {
+        const p = await run(() => GA.svc.createProspect({ nom: out.f.properties.label, adresse: out.f.properties.name || '', commune: out.f.properties.city || '', lat: out.lat, lon: out.lon, analyse: out.a }), 'Fiche créée');
+        if (p) { m.close(); await GA.app.reload(); GA.app.openProspect(p.id); }
+      });
+    });
+  }
+
+  // Réglages partagés du moteur (administrateurs) : sites, distance maximale, malus de proximité.
+  async function reglages() {
+    const r = JSON.parse(JSON.stringify(await GA.moteur.getReglages()));
+    const m = modal('Réglages du moteur', `<form id="rg-form" class="reglages">
+      <b>Vos sites</b><span class="muted small">Laboratoire : sert au calcul de la distance par la route. Distributeur : applique le malus de proximité aux emplacements voisins.</span>
+      <div id="rg-sites"></div>
+      <div class="fc-search"><input id="rg-q" placeholder="Ajouter un site : adresse du 2e distributeur, d’un nouveau laboratoire…"><button type="button" class="btn" id="rg-add">Ajouter</button></div>
+      <label class="tfld"><span>Distance maximale par la route depuis le laboratoire (km)</span><input id="rg-max" type="number" step="0.5" min="1" value="${r.distanceMaxKm}"></label>
+      <label class="tfld"><span>Malus si un distributeur est à moins de (km / points)</span><span><input id="rg-k1" type="number" step="0.5" style="width:70px" value="${r.proximite[0] ? r.proximite[0].km : 1.5}"> km → <input id="rg-p1" type="number" style="width:70px" value="${r.proximite[0] ? r.proximite[0].pts : -10}"> pts</span></label>
+      <label class="tfld"><span>… et à moins de</span><span><input id="rg-k2" type="number" step="0.5" style="width:70px" value="${r.proximite[1] ? r.proximite[1].km : 3}"> km → <input id="rg-p2" type="number" style="width:70px" value="${r.proximite[1] ? r.proximite[1].pts : -5}"> pts</span></label>
+      <div class="modal-actions"><button type="button" class="btn" data-close>Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div></form>`, { wide: true });
+    const draw = () => {
+      $('#rg-sites', m.el).innerHTML = r.sites.map((s, i) => `<div class="site"><input data-k="nom" data-i="${i}" value="${esc(s.nom)}">
+        <span class="muted small">${s.lat.toFixed(4)}</span><span class="muted small">${s.lon.toFixed(4)}</span>
+        <label class="chk"><input type="checkbox" data-k="laboratoire" data-i="${i}" ${s.laboratoire ? 'checked' : ''}> Laboratoire</label>
+        <label class="chk"><input type="checkbox" data-k="distributeur" data-i="${i}" ${s.distributeur ? 'checked' : ''}> Distributeur</label>
+        <button type="button" class="icon-btn" data-rm="${i}" aria-label="Retirer">✕</button></div>`).join('');
+      $$('#rg-sites [data-k]', m.el).forEach(x => x.addEventListener('change', () => { const s = r.sites[+x.dataset.i]; s[x.dataset.k] = x.type === 'checkbox' ? x.checked : x.value; }));
+      $$('#rg-sites [data-rm]', m.el).forEach(x => x.addEventListener('click', () => { r.sites.splice(+x.dataset.rm, 1); draw(); }));
+    };
+    draw();
+    $('#rg-add', m.el).addEventListener('click', async () => {
+      const q = $('#rg-q', m.el).value.trim(); if (!q) return;
+      const f = await run(async () => { const d = await (await fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(q))).json(); if (!d.features || !d.features[0]) throw new Error('Adresse introuvable.'); return d.features[0]; });
+      if (f) { r.sites.push({ nom: f.properties.label, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], laboratoire: false, distributeur: true }); $('#rg-q', m.el).value = ''; draw(); }
+    });
+    $('#rg-form', m.el).addEventListener('submit', async e => {
+      e.preventDefault();
+      r.distanceMaxKm = +$('#rg-max', m.el).value || 10;
+      r.proximite = [{ km: +$('#rg-k1', m.el).value, pts: +$('#rg-p1', m.el).value }, { km: +$('#rg-k2', m.el).value, pts: +$('#rg-p2', m.el).value }].filter(x => x.km > 0);
+      if (!r.sites.some(s => s.laboratoire)) { GA.ui.toast('Gardez au moins un laboratoire.', 'err'); return; }
+      if (await run(() => GA.moteur.setReglages(r).then(() => true), 'Réglages enregistrés')) { m.close(); render(); }
+    });
+  }
+
+  return { render };
+})();
+
+</script>
+<script>
 /* js/ui/dashboard-view.js */
 /* Onglet Tableau de bord : avancement par statut, par responsable et par zone, taux de transformation. */
 window.GA = window.GA || {};
@@ -2609,7 +3173,7 @@ GA.store = { prospects: [], users: [] };
 
 GA.app = (function () {
   const { $, $$, esc, avatar } = GA.ui;
-  const ROUTES = ['carte', 'crm', 'relances', 'bord', 'admin'];
+  const ROUTES = ['carte', 'opp', 'crm', 'relances', 'bord', 'admin'];
   let route = null;
 
   async function reload(opts) {
@@ -2619,6 +3183,7 @@ GA.app = (function () {
     if (route === 'admin') GA.adminView.render();
     if (route === 'relances') GA.relancesView.render();
     if (route === 'bord') GA.dashboardView.render();
+    if (route === 'opp') GA.opportunitesView.render();
     GA.relancesView.badge();
     GA.mapView.sendCounts();
     if (!(opts && opts.keepPanel) && GA.panel.current() && !GA.store.prospects.some(p => p.id === GA.panel.current())) GA.panel.close();
@@ -2644,6 +3209,7 @@ GA.app = (function () {
     if (r === 'admin') GA.adminView.render();
     if (r === 'relances') GA.relancesView.render();
     if (r === 'bord') GA.dashboardView.render();
+    if (r === 'opp') GA.opportunitesView.render();
   }
 
   async function onHash() {
