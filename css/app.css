@@ -280,6 +280,20 @@ tr.inactive td{color:var(--grey)}
 .vt-cam{margin-bottom:12px;display:flex;align-items:center;justify-content:center}
 .vt textarea.notes{font-size:15px}
 
+/* Propriétaire foncier */
+.fc{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;flex:1;min-height:0}
+.fc-map-wrap{display:flex;flex-direction:column;gap:8px;min-height:0}
+.fc-search{display:flex;gap:6px}
+.fc-search input{flex:1;border:1px solid var(--line);border-radius:6px;padding:6px 10px;min-height:34px}
+.fc-map{flex:1;min-height:320px;border-radius:8px;border:1px solid var(--line);cursor:crosshair}
+.fc-side{overflow-y:auto;font-size:13.5px}
+.fc-side h4{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);margin:14px 0 6px}
+.fc-parcel{display:grid;gap:2px;background:var(--soft);border-radius:8px;padding:9px 11px}
+.fc-parcel b{font-size:15px}
+.fc-owner{display:grid;gap:3px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:8px}
+.fc-owner .btn{justify-self:start;margin-top:4px}
+.fc .leaflet-control-layers{font-size:12px}
+
 /* Petits écrans */
 @media (max-width:900px){
   body.panel-open .page{padding-right:24px}
@@ -287,6 +301,8 @@ tr.inactive td{color:var(--grey)}
   .ub-t{display:none}
   .admin-foot{grid-template-columns:1fr}
   .bord-grid{grid-template-columns:1fr}
+  .fc{grid-template-columns:1fr;grid-template-rows:minmax(300px,1fr) auto}
+  .fc-side{max-height:40vh}
 }
 @media (max-width:600px){
   .topbar{gap:8px;padding:0 8px}

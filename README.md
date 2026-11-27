@@ -32,7 +32,8 @@ js/config.js                  adresse et clé publique Supabase, référentiels 
 js/data/zones.js              57 zones extraites de la carte (généré, lecture seule)
 js/data/supabase-repository.js  accès aux données et à l'authentification Supabase
 js/data/repository.js         création du client Supabase (GA.repo)
-js/vendor/                    supabase-js (copie du paquet npm officiel, licence MIT)
+js/vendor/                    supabase-js 2.118.0 (MIT) et Leaflet 1.9.4 (BSD-2), copies des paquets npm officiels
+data/parcelles-pm/            propriétaires personnes morales par commune (DGFiP, généré)
 js/services/auth.js           connexion (Supabase Auth)
 js/services/permissions.js    droits administrateur / utilisateur
 js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
@@ -45,6 +46,7 @@ supabase/schema.sql           tables, déclencheurs et règles de sécurité de 
 supabase/002_documents_visites.sql  documents, stockage privé, position GPS des échanges
 tools/make_zones.py           régénère js/data/zones.js depuis la carte
 tools/bundle.py               produit la version en un seul fichier
+tools/make_parcelles.py       régénère data/parcelles-pm/ depuis le fichier DGFiP
 ```
 
 L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase de `js/config.js` est faite pour être visible : sans compte connecté et actif, les règles de sécurité de la base ne donnent accès à rien. La clé secrète (service_role) ne doit jamais apparaître dans le dépôt.
@@ -61,6 +63,18 @@ L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase 
   Stockage privé Supabase : les fichiers ne s'ouvrent que par des liens temporaires, pour les comptes actifs. Les photos sont réduites à 2000 px avant l'envoi.
 - **Visite terrain** (bouton « + Visite », en bas à droite sur téléphone) : position GPS, fiche la plus proche présélectionnée, compte rendu,
   photos prises sur place, statut et prochaine relance. L'échange garde la position (lien « 📍 position » dans l'historique).
+
+## Propriétaire foncier
+
+Bouton « Propriétaire » de la fiche : plan IGN (photo aérienne ou plan) avec les parcelles cadastrales, centré sur l'adresse de la fiche ou sa zone.
+Un clic sur une parcelle donne sa référence, sa surface et, quand c'est une personne morale (société, SCI, commune, État, bailleur social…), le propriétaire et son SIREN.
+« Utiliser comme propriétaire de la fiche » remplit le propriétaire, son type et ajoute la parcelle aux notes.
+
+- Parcelles : API Carto de l'IGN (apicarto.ign.fr) ; fonds de plan : Géoplateforme IGN (data.geopf.fr) ; adresses : géocodeur IGN.
+- Propriétaires : fichier DGFiP des parcelles des personnes morales (situation 2026, Licence Ouverte), préparé par `tools/make_parcelles.py`
+  dans `data/parcelles-pm/` pour les 94 communes du Val-d'Oise autour des zones. Les propriétaires particuliers ne sont pas publiés.
+- Mise à jour annuelle : télécharger le nouveau fichier sur data.economie.gouv.fr (« Fichiers des locaux et des parcelles des personnes morales »)
+  et relancer le script.
 
 ## Entreprises de la zone
 

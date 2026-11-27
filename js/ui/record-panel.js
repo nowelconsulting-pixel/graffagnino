@@ -52,6 +52,7 @@ GA.panel = (function () {
       <span class="muted small">${i >= 0 ? (i + 1) + ' / ' + ids.length : ''}</span>
       <span class="grow"></span>
       ${ed ? '<button class="btn ghost" data-visite title="Compte rendu de visite avec photos et position">Visite</button>' : ''}
+      <button class="btn ghost" data-foncier title="Parcelle cadastrale et propriétaire (sociétés, collectivités)">Propriétaire</button>
       ${z ? '<button class="btn ghost" data-ent title="Établissements autour de la zone, avec SIREN">Entreprises</button><button class="btn ghost" data-map>Voir sur la carte</button>' : ''}
       ${GA.perm.canDeleteProspect(me) ? '<button class="btn ghost danger-t" data-del>Supprimer</button>' : ''}
       <button class="icon-btn" data-x title="Fermer (Échap)" aria-label="Fermer">✕</button>
@@ -121,6 +122,7 @@ GA.panel = (function () {
     $('[data-x]', root).addEventListener('click', close);
     $$('[data-nav]', root).forEach(b => b.addEventListener('click', () => step(+b.dataset.nav)));
     const vb = $('[data-visite]', root); if (vb) vb.addEventListener('click', () => GA.visiteView.open(p.id));
+    const fb = $('[data-foncier]', root); if (fb) fb.addEventListener('click', () => GA.foncierView.open(p.id));
     const eb = $('[data-ent]', root); if (eb) eb.addEventListener('click', () => GA.entreprisesView.open(p.zone_id));
     const mb = $('[data-map]', root); if (mb) mb.addEventListener('click', () => GA.mapView.focusZone(p.zone_id));
     const db = $('[data-del]', root); if (db) db.addEventListener('click', async () => {
