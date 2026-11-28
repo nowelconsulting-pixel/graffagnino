@@ -114,26 +114,44 @@ ${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.open
   return { workbook, download };
 })();
 
-/* Export complet du CRM : fiches, échanges, utilisateurs. */
+/* Export complet du CRM : dossiers, interlocuteurs, échanges, réseau, utilisateurs. */
 GA.exportCrm = async function () {
   const [prospects, exchanges, users] = await Promise.all([GA.svc.listProspects(), GA.svc.listExchanges(), GA.svc.listUsers()]);
+  const contacts = GA.store.contacts || [], sites = GA.store.sites || [];
   const userName = id => (users.find(u => u.id === id) || {}).nom || '';
   const pById = Object.fromEntries(prospects.map(p => [p.id, p]));
   const day = s => s ? String(s).slice(0, 10) : '';
+  const lab = (list, k) => k ? ((list || []).find(x => x.key === k) || {}).label || k : '';
+  const nomDe = (list, id) => ((list || []).find(x => x.id === id) || {}).nom || '';
   const sheets = [
-    { name: 'Fiches', columns: [
-      { key: 'nom', label: 'Emplacement', width: 34 }, { key: 'zone_id', label: 'Zone', width: 7 }, { key: 'zone_nom', label: 'Nom de la zone', width: 30 },
-      { key: 'commune', label: 'Commune', width: 20 }, { key: 'adresse', label: 'Adresse', width: 34 }, { key: 'statut', label: 'Statut', width: 22 },
+    { name: 'Dossiers', columns: [
+      { key: 'nom', label: 'Emplacement', width: 34 }, { key: 'typologie', label: 'Typologie', width: 16 }, { key: 'zone_id', label: 'Zone', width: 7 }, { key: 'zone_nom', label: 'Nom de la zone', width: 30 },
+      { key: 'commune', label: 'Commune', width: 20 }, { key: 'adresse', label: 'Adresse', width: 34 }, { key: 'statut', label: 'Étape', width: 20 }, { key: 'statut_depuis', label: 'Depuis le', width: 11 },
+      { key: 'categorie', label: 'Priorité', width: 20 }, { key: 'potentiel', label: 'Potentiel /100', width: 10 }, { key: 'avance', label: 'Dossier avancé', width: 10 },
       { key: 'responsable', label: 'Responsable', width: 18 }, { key: 'prochaine_action', label: 'Prochaine action', width: 34 }, { key: 'date_relance', label: 'Relance', width: 11 },
-      { key: 'proprietaire_nom', label: 'Propriétaire / gestionnaire', width: 28 }, { key: 'proprietaire_type', label: 'Type de propriétaire', width: 18 },
-      { key: 'decideur_nom', label: 'Décideur', width: 22 }, { key: 'decideur_fonction', label: 'Fonction', width: 22 }, { key: 'telephone', label: 'Téléphone', width: 15 },
-      { key: 'email', label: 'Email', width: 26 }, { key: 'notes', label: 'Notes', width: 50 }, { key: 'nb_echanges', label: 'Échanges', width: 9 },
-      { key: 'created_at', label: 'Créée le', width: 11 }, { key: 'updated_at', label: 'Mise à jour', width: 11 }, { key: 'id', label: 'Identifiant', width: 38 },
+      { key: 'principal', label: 'Contact principal', width: 24 }, { key: 'interet', label: 'Intérêt', width: 14 }, { key: 'pouvoir', label: 'Pouvoir', width: 16 },
+      { key: 'bloque', label: 'Bloqué', width: 8 }, { key: 'blocage_raison', label: 'Raison du blocage', width: 28 }, { key: 'reexamen_le', label: 'Réexamen', width: 11 },
+      { key: 'motif_abandon', label: 'Motif d’abandon', width: 28 }, { key: 'modele_eco', label: 'Modèle économique', width: 20 }, { key: 'montant', label: 'Montant', width: 10 },
+      { key: 'montant_unite', label: 'Unité', width: 12 }, { key: 'duree_mois', label: 'Durée (mois)', width: 9 }, { key: 'electricite', label: 'Électricité', width: 16 },
+      { key: 'emplacement_precis', label: 'Emplacement précis', width: 28 }, { key: 'date_accord', label: 'Accord', width: 11 }, { key: 'date_signature', label: 'Signature', width: 11 },
+      { key: 'date_installation', label: 'Installation', width: 11 }, { key: 'secteur', label: 'Secteur', width: 16 }, { key: 'objectif', label: 'Objectif', width: 22 },
+      { key: 'notes', label: 'Notes', width: 50 }, { key: 'nb_echanges', label: 'Échanges', width: 9 },
+      { key: 'created_at', label: 'Créé le', width: 11 }, { key: 'updated_at', label: 'Mise à jour', width: 11 }, { key: 'id', label: 'Identifiant', width: 38 },
     ], rows: prospects.map(p => {
-      const z = GA.svc.zone(p.zone_id);
-      return { ...p, zone_nom: z ? z.nom : '', statut: GA.ui.statut(p.statut).label, responsable: userName(p.responsable_id),
+      const z = GA.svc.zone(p.zone_id), pr = contacts.find(c => c.prospect_id === p.id && c.principal), pot = GA.pipe.potentiel(p), cat = GA.pipe.categorie(p);
+      return { ...p, zone_nom: z ? z.nom : '', statut: GA.pipe.etape(p.statut).label, statut_depuis: day(p.statut_depuis), typologie: lab(GA.TYPOLOGIES, p.typologie),
+        categorie: cat ? GA.pipe.CATEGORIES[cat].label : '', potentiel: pot ? pot.total : '', avance: GA.pipe.estOuvert(p) ? (GA.pipe.avancement(p).avance ? 'oui' : 'non') : '',
+        responsable: userName(p.responsable_id), principal: pr ? [pr.nom, pr.entreprise].filter(Boolean).join(' · ') : '', interet: pr ? lab(GA.INTERETS, pr.interet) : '', pouvoir: pr ? lab(GA.POUVOIRS, pr.pouvoir) : '',
+        bloque: p.bloque ? 'oui' : '', blocage_raison: lab(GA.RAISONS_BLOCAGE, p.blocage_raison), motif_abandon: [lab(GA.MOTIFS_ABANDON, p.motif_abandon), p.motif_abandon_precision].filter(Boolean).join(' : '),
+        modele_eco: lab(GA.MODELES_ECO, p.modele_eco), montant_unite: lab(GA.UNITES_MONTANT, p.montant_unite), electricite: lab(GA.ELECTRICITE, p.electricite),
+        secteur: nomDe(GA.store.secteurs, p.secteur_id), objectif: nomDe(GA.store.objectifs, p.objectif_id),
         nb_echanges: exchanges.filter(e => e.prospect_id === p.id).length, created_at: day(p.created_at), updated_at: day(p.updated_at) };
     }) },
+    { name: 'Interlocuteurs', columns: [
+      { key: 'fiche', label: 'Emplacement', width: 30 }, { key: 'nom', label: 'Nom', width: 22 }, { key: 'fonction', label: 'Fonction', width: 22 }, { key: 'entreprise', label: 'Entreprise', width: 24 },
+      { key: 'telephone', label: 'Téléphone', width: 15 }, { key: 'email', label: 'Email', width: 26 }, { key: 'role', label: 'Rôle', width: 18 }, { key: 'pouvoir', label: 'Pouvoir', width: 18 },
+      { key: 'interet', label: 'Intérêt', width: 14 }, { key: 'principal', label: 'Principal', width: 9 }, { key: 'notes', label: 'Notes', width: 40 },
+    ], rows: contacts.map(c => ({ ...c, fiche: (pById[c.prospect_id] || {}).nom || '', role: lab(GA.ROLES_CONTACT, c.role), pouvoir: lab(GA.POUVOIRS, c.pouvoir), interet: lab(GA.INTERETS, c.interet), principal: c.principal ? 'oui' : '' })) },
     { name: 'Échanges', columns: [
       { key: 'date', label: 'Date', width: 11 }, { key: 'fiche', label: 'Emplacement', width: 34 }, { key: 'zone_id', label: 'Zone', width: 7 },
       { key: 'type', label: 'Type', width: 12 }, { key: 'commentaire', label: 'Compte rendu', width: 70 }, { key: 'auteur', label: 'Auteur', width: 18 },
@@ -141,6 +159,10 @@ GA.exportCrm = async function () {
       date: e.date, fiche: (pById[e.prospect_id] || {}).nom || '', zone_id: (pById[e.prospect_id] || {}).zone_id || '',
       type: (GA.TYPES_ECHANGE.find(t => t.key === e.type) || {}).label || e.type, commentaire: e.commentaire, auteur: userName(e.auteur_id),
     })) },
+    { name: 'Réseau', columns: [
+      { key: 'nom', label: 'Site', width: 30 }, { key: 'type', label: 'Type', width: 14 }, { key: 'statut', label: 'Statut', width: 14 }, { key: 'adresse', label: 'Adresse', width: 30 },
+      { key: 'commune', label: 'Commune', width: 20 }, { key: 'lat', label: 'Latitude', width: 11 }, { key: 'lon', label: 'Longitude', width: 11 }, { key: 'date_installation', label: 'Installé le', width: 11 }, { key: 'infos', label: 'Informations', width: 40 },
+    ], rows: sites },
     { name: 'Utilisateurs', columns: [
       { key: 'nom', label: 'Nom', width: 22 }, { key: 'email', label: 'Email', width: 28 }, { key: 'role', label: 'Rôle', width: 15 },
       { key: 'fonction', label: 'Fonction', width: 22 }, { key: 'telephone', label: 'Téléphone', width: 15 }, { key: 'actif', label: 'Actif', width: 7 },

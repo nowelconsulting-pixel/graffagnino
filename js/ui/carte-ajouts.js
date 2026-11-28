@@ -3,7 +3,9 @@
    et dialogue avec l'application (window.parent.GA, même site).
    - barre de recherche d'adresse (géocodeur IGN) ;
    - « + Emplacement » : clic sur la carte → marqueur → création d'une fiche positionnée ;
-   - calque « Fiches CRM » : toutes les fiches positionnées, couleur du statut, clic → ouvrir la fiche. */
+   - calque « Fiches CRM » : toutes les fiches positionnées, couleur de l'étape, clic → ouvrir la fiche ;
+   - calque « Réseau et concurrents » : laboratoires, distributeurs (rayon du malus de proximité), concurrents déclarés ;
+   - calque « Étude de sourcing » : lieux d'une étude affichée depuis Opportunités. */
 (function () {
   if (window.__gaAjouts) return;
   window.__gaAjouts = true;
@@ -163,8 +165,8 @@
     layer.clearLayers();
     (GA.store.prospects || []).filter(p => p.lat != null && p.lon != null).forEach(p => {
       const s = GA.ui.statut(p.statut);
-      const mk = L.marker([p.lat, p.lon], { icon: pinIcon(s.color), title: p.nom }).addTo(layer);
-      const f = p.analyse && GA.moteur ? GA.moteur.scoreFinal(p.analyse, p) : null;
+      const mk = L.marker([p.lat, p.lon], { icon: pinIcon(s.color), title: p.nom, opacity: p.statut === 'abandonne' ? 0.45 : 1 }).addTo(layer);
+      const f = GA.pipe ? GA.pipe.potentiel(p) : null;
       mk.bindPopup(`<div class="ga-pop"><b>${esc(p.nom)}</b><div class="muted">${esc(s.label)}${p.zone_id ? ' · zone ' + esc(p.zone_id) : ''}${p.commune ? ' · ' + esc(p.commune) : ''}</div>
         ${f ? `<div style="margin-top:4px">Score <b>${f.total}</b>/100 · priorité ${f.priorite}</div>` : ''}
         ${p.prochaine_action ? `<div style="margin-top:4px">${esc(p.prochaine_action)}</div>` : ''}<button type="button" data-open>Ouvrir la fiche</button>
@@ -179,6 +181,44 @@
       });
     });
   }
-  window.__gaFiches = { refresh, focus(p) { if (p.lat != null) { map.flyTo([p.lat, p.lon], 17, { duration: 0.6 }); } } };
-  refresh();
+  /* ---- Réseau (laboratoires, distributeurs installés) et concurrents déclarés ---- */
+  const reseau = L.layerGroup().addTo(map);
+  const sq = (bg, txt) => L.divIcon({ className: '', html: `<div class="ga-site" style="background:${bg}">${txt}</div>`, iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10] });
+  function refreshReseau() {
+    reseau.clearLayers();
+    const R = GA.moteur && GA.moteur.reglagesSync ? GA.moteur.reglagesSync() : { proximite: [] };
+    const rayon = Math.max(0, ...(R.proximite || []).map(x => x.km)) * 1000;
+    (GA.store.sites || []).filter(s => s.lat != null && s.lon != null && s.statut !== 'retire').forEach(s => {
+      const labo = s.type === 'laboratoire', hyp = s.statut === 'hypothetique';
+      L.marker([s.lat, s.lon], { icon: sq(labo ? '#263F1F' : hyp ? '#9aa1ab' : '#c2255c', labo ? 'L' : 'D'), title: s.nom, zIndexOffset: 500 }).addTo(reseau)
+        .bindPopup(`<div class="ga-pop"><b>${esc(s.nom)}</b><div class="muted">${labo ? 'Laboratoire · livraison jusqu’à ' + (s.distance_max_km || 10) + ' km' : 'Distributeur ' + esc(String(s.statut).replace('_', ' '))}${s.commune ? ' · ' + esc(s.commune) : ''}</div>${s.infos ? `<div style="margin-top:4px">${esc(s.infos)}</div>` : ''}</div>`);
+      if (!labo && !hyp && rayon) L.circle([s.lat, s.lon], { radius: rayon, color: '#c2255c', weight: 1, dashArray: '4 4', fill: false, interactive: false }).addTo(reseau);
+    });
+    (GA.store.concurrents || []).filter(c => c.lat != null && c.lon != null).forEach(c => {
+      L.marker([c.lat, c.lon], { icon: sq('#495057', '×'), title: c.nom }).addTo(reseau)
+        .bindPopup(`<div class="ga-pop"><b>${esc(c.nom)}</b><div class="muted">Concurrent${c.type ? ' · ' + esc(c.type) : ''}${c.commune ? ' · ' + esc(c.commune) : ''}</div>${c.notes ? `<div style="margin-top:4px">${esc(c.notes)}</div>` : ''}</div>`);
+    });
+  }
+
+  /* ---- Lieux d'une étude de sourcing (affichés depuis Opportunités) ---- */
+  const etude = L.layerGroup().addTo(map);
+  function showLieux(list, opts) {
+    etude.clearLayers();
+    (list || []).forEach(x => {
+      const c = x.decision === 'ecarte' ? '#adb5bd' : x.decision === 'retenu' ? '#2b8a3e' : (x.color || '#1f6fd1');
+      L.circleMarker([x.lat, x.lon], { radius: 7, color: '#fff', weight: 2, fillColor: c, fillOpacity: .95 }).addTo(etude)
+        .bindTooltip(`${esc(x.nom)}${x.note != null ? ' · ' + x.note + '/100' : ''}`)
+        .on('click', () => { if (opts && opts.onClick) opts.onClick(x.id); });
+    });
+    if (opts && opts.centre) L.circle([opts.centre.lat, opts.centre.lon], { radius: opts.centre.rayon, color: '#1f6fd1', weight: 1, fill: false, dashArray: '6 6', interactive: false }).addTo(etude);
+    if (list && list.length && (!opts || opts.fit !== false)) map.fitBounds(L.latLngBounds(list.map(x => [x.lat, x.lon])).pad(0.15));
+  }
+
+  if (L.control && L.control.layers) L.control.layers(null, { 'Fiches CRM': layer, 'Réseau et concurrents': reseau, 'Étude de sourcing': etude }, { position: 'bottomleft', collapsed: true }).addTo(map);
+  const css2 = document.createElement('style');
+  css2.textContent = '.ga-site{width:22px;height:22px;border-radius:6px;border:2px solid #fff;box-shadow:0 1px 4px #0006;color:#fff;font:700 12px/18px system-ui,sans-serif;text-align:center}';
+  document.head.appendChild(css2);
+
+  window.__gaFiches = { refresh() { refresh(); refreshReseau(); }, showLieux, focus(p) { if (p.lat != null) { map.flyTo([p.lat, p.lon], 17, { duration: 0.6 }); } } };
+  refresh(); refreshReseau();
 })();
