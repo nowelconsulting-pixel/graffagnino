@@ -173,5 +173,14 @@ GA.opportunitesView = (function () {
     });
   }
 
-  return { render };
+  // Onglets : études de sourcing (par défaut) / zones et emplacements.
+  let onglet = 'etudes';
+  try { onglet = localStorage.getItem('ga.opp.onglet') || 'etudes'; } catch (e) {}
+  function afficher() {
+    $$('.opp-tabs [data-otab]').forEach(b => { b.classList.toggle('on', b.dataset.otab === onglet); b.onclick = () => { onglet = b.dataset.otab; try { localStorage.setItem('ga.opp.onglet', onglet); } catch (e) {} afficher(); }; });
+    $('#opp-etudes').hidden = onglet !== 'etudes'; $('#opp-body').hidden = onglet !== 'zones';
+    if (onglet === 'etudes') GA.sourcingView.render($('#opp-etudes')); else render();
+  }
+
+  return { render: afficher, renderZones: render };
 })();

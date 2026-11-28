@@ -53,8 +53,10 @@
   </section>
 
   <section id="view-opp" class="view page" hidden>
-    <div class="page-h"><div><h1>Opportunités</h1><span class="muted">Zones de l’étude et emplacements repérés, classés avec le même barème</span></div></div>
-    <div id="opp-body"></div>
+    <div class="page-h"><div><h1>Opportunités</h1><span class="muted">Trouver les meilleurs emplacements : études de sourcing, zones de l’étude et emplacements repérés</span></div></div>
+    <div class="tabs-h opp-tabs" role="tablist"><button class="tab on" data-otab="etudes">Études de sourcing</button><button class="tab" data-otab="zones">Zones et emplacements</button></div>
+    <div id="opp-etudes"></div>
+    <div id="opp-body" hidden></div>
   </section>
 
   <section id="view-relances" class="view page" hidden>
@@ -102,6 +104,7 @@
 <script src="js/services/permissions.js"></script>
 <script src="js/services/prospects.js"></script>
 <script src="js/services/pipeline.js"></script>
+<script src="js/services/sourcing.js"></script>
 <script src="js/services/entreprises.js"></script>
 <script src="js/services/export-xlsx.js"></script>
 <script src="js/services/images.js"></script>
@@ -122,6 +125,7 @@
 <script src="js/ui/score-view.js"></script>
 <script src="js/ui/opportunites-view.js"></script>
 <script src="js/ui/dashboard-view.js"></script>
+<script src="js/ui/sourcing-view.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

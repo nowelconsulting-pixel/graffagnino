@@ -71,6 +71,15 @@ GA.mapView = (function () {
       if (ready) post({ type: 'ga:focus', id }); else pendingFocus = id;
     },
     sendCounts,
+    // Affiche les lieux d'une étude de sourcing sur la carte (calque « Étude de sourcing »).
+    showLieux(list, opts) {
+      GA.app.go('carte');
+      const tryShow = (n) => {
+        try { const f = frame.contentWindow.__gaFiches; if (f && f.showLieux) { f.showLieux(list, opts); return; } } catch (e) {}
+        if (n > 0) setTimeout(() => tryShow(n - 1), 200);
+      };
+      setTimeout(() => tryShow(50), 100);
+    },
     // Centre la carte sur une fiche positionnée.
     focusProspect(p) {
       GA.app.go('carte');

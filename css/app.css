@@ -391,6 +391,28 @@ details.ancien summary{cursor:pointer;color:var(--mute)}
 .mx-h b{font-size:22px;margin-right:4px}
 .mx-cell ul{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:3px;font-size:13px}
 
+
+/* Études de sourcing */
+.opp-tabs{margin-top:4px}
+.etudes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.etude-card{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:6px;background:#fff}
+.ec-a{display:flex;gap:6px}
+.empty-state{border:1px dashed var(--line);border-radius:10px;padding:24px;text-align:center}
+.ws-typos{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px;margin-top:4px}
+fieldset.fld{border:0;padding:0;margin:0 0 10px}
+.ws-prog{background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13px;margin:8px 0}
+.et-table td{vertical-align:top}
+.dims{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 10px}
+.dims th{text-align:left;font-weight:600;width:190px;padding:6px 8px 6px 0;vertical-align:top;color:var(--mute)}
+.dims td{padding:6px 0;border-bottom:1px solid var(--line)}
+.lieu-det h3{font-size:14px;margin:14px 0 6px}
+.lieu-det details{margin:8px 0}
+.lieu-det summary{cursor:pointer;font-weight:600}
+.acteurs{list-style:none;padding:0;margin:0 0 8px;display:grid;gap:6px}
+.lieu-act{flex-wrap:wrap}
+.cmp-table th{vertical-align:top;text-align:left}
+.cmp-table td{vertical-align:top}
+
 /* Petits écrans */
 @media (max-width:900px){
   body.panel-open .page{padding-right:24px}
