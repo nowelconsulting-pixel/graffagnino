@@ -13,17 +13,96 @@ GA.config = {
   entreprisesApi: 'https://recherche-entreprises.api.gouv.fr',
 };
 
+// Pipeline commercial V2 : 7 étapes ouvertes, puis Installé (gagné) ou Abandonné (perdu, motif obligatoire).
 GA.STATUTS = [
-  { key: 'a_prospecter',           label: 'À prospecter',                        color: '#8a8f98' },
-  { key: 'decideur_a_identifier',  label: 'Propriétaire / décideur à identifier', color: '#7c5cc4' },
-  { key: 'contact_a_etablir',      label: 'Contact à établir',                   color: '#3d7ea6' },
-  { key: 'contact_etabli',         label: 'Contact établi',                      color: '#1f6fd1' },
-  { key: 'en_discussion',          label: 'En discussion',                       color: '#0f8b8d' },
-  { key: 'visite_a_organiser',     label: 'Visite à organiser',                  color: '#c77700' },
-  { key: 'negociation',            label: 'Négociation',                         color: '#d9480f' },
-  { key: 'accord',                 label: 'Accord obtenu',                       color: '#2b8a3e' },
-  { key: 'refuse',                 label: 'Refusé / Abandonné',                  color: '#c92a2a' },
+  { key: 'repere',        label: 'Repéré',                  court: 'Repéré',        color: '#8a8f98', ordre: 1, ouvert: true },
+  { key: 'qualifie',      label: 'Qualifié',                court: 'Qualifié',      color: '#7c5cc4', ordre: 2, ouvert: true },
+  { key: 'interlocuteur', label: 'Interlocuteur identifié', court: 'Interlocuteur', color: '#3d7ea6', ordre: 3, ouvert: true },
+  { key: 'discussion',    label: 'En discussion',           court: 'Discussion',    color: '#1f6fd1', ordre: 4, ouvert: true },
+  { key: 'negociation',   label: 'Négociation',             court: 'Négociation',   color: '#d9480f', ordre: 5, ouvert: true },
+  { key: 'accord',        label: 'Accord',                  court: 'Accord',        color: '#c77700', ordre: 6, ouvert: true },
+  { key: 'signe',         label: 'Signé',                   court: 'Signé',         color: '#2b8a3e', ordre: 7, ouvert: true },
+  { key: 'installe',      label: 'Installé',                court: 'Installé',      color: '#1e6b34', ordre: 8, ouvert: false },
+  { key: 'abandonne',     label: 'Abandonné',               court: 'Abandonné',     color: '#c92a2a', ordre: 9, ouvert: false },
 ];
+GA.STATUTS_OUVERTS = GA.STATUTS.filter(s => s.ouvert).map(s => s.key);
+
+GA.MOTIFS_ABANDON = [
+  { key: 'refus_decideur',      label: 'Refus du propriétaire ou du décideur' },
+  { key: 'conditions',          label: 'Conditions financières inacceptables' },
+  { key: 'technique',           label: 'Infaisable techniquement (électricité, place, réseau, sécurité)' },
+  { key: 'urbanisme',           label: 'Urbanisme ou autorisation refusée' },
+  { key: 'injoignable',         label: 'Décideur introuvable ou sans réponse' },
+  { key: 'potentiel',           label: 'Potentiel insuffisant après visite' },
+  { key: 'cannibalisation',     label: 'Trop proche d’un de nos distributeurs' },
+  { key: 'autre',               label: 'Autre' },
+  { key: 'non_precise',         label: 'Non précisé (avant la V2)' },
+];
+GA.RAISONS_BLOCAGE = [
+  { key: 'decision_siege',  label: 'Décision du siège ou de la copropriété attendue' },
+  { key: 'autorisation',    label: 'Autorisation administrative attendue' },
+  { key: 'travaux',         label: 'Travaux ou électricité à prévoir' },
+  { key: 'indisponible',    label: 'Interlocuteur indisponible' },
+  { key: 'autre',           label: 'Autre' },
+];
+GA.ROLES_CONTACT = [
+  { key: 'decideur',     label: 'Décideur final' },
+  { key: 'proprietaire', label: 'Propriétaire foncier' },
+  { key: 'exploitant',   label: 'Exploitant (gérant du site)' },
+  { key: 'gestionnaire', label: 'Gestionnaire du site' },
+  { key: 'directeur',    label: 'Directeur d’établissement' },
+  { key: 'immobilier',   label: 'Responsable immobilier' },
+  { key: 'collectivite', label: 'Collectivité (mairie)' },
+  { key: 'autre',        label: 'Autre' },
+];
+GA.POUVOIRS = [
+  { key: 'decideur',     label: 'Décideur' },
+  { key: 'prescripteur', label: 'Prescripteur' },
+  { key: 'sans_pouvoir', label: 'Sans pouvoir décisionnel' },
+  { key: 'a_confirmer',  label: 'À confirmer' },
+];
+GA.INTERETS = [
+  { key: 'non_exprime',    label: 'Non exprimé',    color: '#8a8f98' },
+  { key: 'reserve',        label: 'Réservé',        color: '#c77700' },
+  { key: 'interesse',      label: 'Intéressé',      color: '#1f6fd1' },
+  { key: 'tres_interesse', label: 'Très intéressé', color: '#2b8a3e' },
+];
+GA.MODELES_ECO = [
+  { key: 'fixe',        label: 'Redevance fixe' },
+  { key: 'pourcentage', label: 'Pourcentage du chiffre d’affaires' },
+  { key: 'mixte',       label: 'Mixte (fixe + %)' },
+  { key: 'gratuit',     label: 'Gratuit (contrepartie service)' },
+  { key: 'autre',       label: 'Autre' },
+];
+GA.UNITES_MONTANT = ['€ / mois', '€ / an', '% du CA'];
+GA.ELECTRICITE = [
+  { key: 'disponible', label: 'Disponible' },
+  { key: 'a_prevoir',  label: 'À prévoir' },
+  { key: 'inconnue',   label: 'Inconnue' },
+];
+
+// Typologies d'emplacements et profils de pondération du moteur (mêmes 8 critères, total 100).
+// Hypothèses de départ, à réviser avec les ventes réelles (voir README).
+GA.TYPOLOGIES = [
+  { key: 'supermarche',  label: 'Parking de supermarché',         icon: '🛒', color: '#1f6fd1' },
+  { key: 'station',      label: 'Station-service',                icon: '⛽', color: '#d9480f' },
+  { key: 'gare',         label: 'Gare / pôle de transport',       icon: '🚉', color: '#7c5cc4' },
+  { key: 'commercial',   label: 'Centre commercial / retail park', icon: '🏬', color: '#0f8b8d' },
+  { key: 'parking',      label: 'Parking public',                 icon: '🅿', color: '#5d6675' },
+  { key: 'loisirs',      label: 'Loisirs, sport, cinéma',          icon: '🎬', color: '#c77700' },
+  { key: 'hotel',        label: 'Hôtel, camping',                 icon: '🏨', color: '#a61e4d' },
+  { key: 'autre',        label: 'Autre / emplacement repéré',      icon: '📍', color: '#8a8f98' },
+];
+GA.PROFILS = {
+  general:     { hab: 15, pop: 10, soir: 15, arret: 10, flux: 15, env: 15, conc: 15, emp: 5 },
+  station:     { hab: 5,  pop: 15, soir: 15, arret: 15, flux: 25, env: 10, conc: 10, emp: 5 },
+  supermarche: { hab: 10, pop: 15, soir: 15, arret: 15, flux: 10, env: 15, conc: 15, emp: 5 },
+  gare:        { hab: 10, pop: 5,  soir: 15, arret: 0,  flux: 30, env: 15, conc: 15, emp: 10 },
+  commercial:  { hab: 10, pop: 15, soir: 15, arret: 15, flux: 10, env: 15, conc: 15, emp: 5 },
+  parking:     { hab: 20, pop: 10, soir: 15, arret: 10, flux: 10, env: 10, conc: 20, emp: 5 },
+  loisirs:     { hab: 10, pop: 15, soir: 25, arret: 15, flux: 10, env: 10, conc: 15, emp: 0 },
+  hotel:       { hab: 5,  pop: 10, soir: 20, arret: 15, flux: 20, env: 10, conc: 15, emp: 5 },
+};
 
 GA.TYPES_PROPRIETAIRE = [
   'Privé', 'Public / collectivité', 'Enseigne', 'Foncière', 'Copropriété / syndic',
@@ -36,6 +115,7 @@ GA.TYPES_ECHANGE = [
   { key: 'rdv',    label: 'Rendez-vous', icon: '◷' },
   { key: 'visite', label: 'Visite',      icon: '⌖' },
   { key: 'note',   label: 'Note',        icon: '✎' },
+  { key: 'proposition', label: 'Proposition', icon: '€' },
 ];
 
 GA.ROLES = [

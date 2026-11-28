@@ -62,18 +62,31 @@ GA.panel = (function () {
       <div class="meta-line">Créée le ${fmtDate(p.created_at)} · <span id="upd">mise à jour ${fmtDateTime(p.updated_at)}</span></div>
       ${ed ? '' : `<div class="ro">Lecture seule : ce dossier est suivi par ${esc(resp ? resp.nom : 'un autre utilisateur')}. Seuls son responsable et les administrateurs peuvent le modifier.</div>`}
 
+      ${GA.pipeUI.stepper(p, ed)}
+      ${GA.pipeUI.barreActions(p, ed)}
+      ${GA.pipeUI.bandeaux(p)}
+
       <div class="props">
-        ${prop('Statut', 'statut', p, ed, 'select', GA.STATUTS.map(s => `<option value="${s.key}" ${s.key === p.statut ? 'selected' : ''}>${esc(s.label)}</option>`).join(''))}
-        ${prop('Responsable', 'responsable_id', p, ed && (GA.perm.canAssignOthers(me) || !p.responsable_id), 'select', responsableOptions(p, me))}
         ${prop('Prochaine action', 'prochaine_action', p, ed, 'textarea')}
         ${prop('Date de relance', 'date_relance', p, ed, 'date')}
+        ${prop('Responsable', 'responsable_id', p, ed && (GA.perm.canAssignOthers(me) || !p.responsable_id), 'select', responsableOptions(p, me))}
       </div>
 
-      <h4>Score de l’emplacement</h4>
+      <h4>Interlocuteurs <span class="muted small">${GA.pipe.contactsDe(p).length}</span></h4>
+      ${GA.pipeUI.contactsHtml(p, ed)}
+
+      <h4>Potentiel de l’emplacement</h4>
       <div id="score-sec">${GA.scoreView.section(p, ed)}</div>
+
+      ${GA.pipeUI.conditionsHtml(p, ed)}
+      <h4>Jalons</h4>
+      ${GA.pipeUI.jalonsHtml(p, ex, ed)}
 
       <h4>Identification</h4>
       <div class="props">
+        ${prop('Typologie', 'typologie', p, ed, 'select', '<option value="">—</option>' + GA.TYPOLOGIES.map(x => `<option value="${x.key}" ${x.key === p.typologie ? 'selected' : ''}>${esc(x.icon + ' ' + x.label)}</option>`).join(''))}
+        ${prop('Secteur', 'secteur_id', p, ed, 'select', '<option value="">—</option>' + GA.store.secteurs.map(x => `<option value="${x.id}" ${x.id === p.secteur_id ? 'selected' : ''}>${esc(x.nom)}</option>`).join(''))}
+        ${prop('Objectif', 'objectif_id', p, ed, 'select', '<option value="">—</option>' + GA.store.objectifs.filter(o => o.statut !== 'archive' || o.id === p.objectif_id).map(x => `<option value="${x.id}" ${x.id === p.objectif_id ? 'selected' : ''}>${esc(x.nom)}</option>`).join(''))}
         ${prop('Zone de la carte', 'zone_id', p, ed, 'select', zoneOptions(p.zone_id))}
         ${z ? `<div class="prop"><label></label><div class="pv">${zoneSummary(z)}</div></div>` : ''}
         ${prop('Adresse', 'adresse', p, ed)}
@@ -83,15 +96,15 @@ GA.panel = (function () {
           : `<span class="muted">Non positionnée</span>${ed ? ' <button class="link" data-locate>Localiser depuis l’adresse</button>' : ''}`}</div></div>
       </div>
 
-      <h4>Qualification commerciale</h4>
+      ${[p.proprietaire_nom, p.proprietaire_type, p.decideur_nom, p.decideur_fonction, p.telephone, p.email].some(Boolean) ? `<details class="ancien"><summary>Saisie avant V2 (lecture seule, reprise dans les interlocuteurs)</summary>
       <div class="props">
-        ${prop('Propriétaire / gestionnaire', 'proprietaire_nom', p, ed)}
-        ${prop('Type de propriétaire', 'proprietaire_type', p, ed, 'select', '<option value="">—</option>' + GA.TYPES_PROPRIETAIRE.map(t => `<option ${t === p.proprietaire_type ? 'selected' : ''}>${esc(t)}</option>`).join(''))}
-        ${prop('Décideur', 'decideur_nom', p, ed)}
-        ${prop('Fonction', 'decideur_fonction', p, ed)}
-        ${prop('Téléphone', 'telephone', p, ed, 'tel')}
-        ${prop('Email', 'email', p, ed, 'email')}
-      </div>
+        ${prop('Propriétaire / gestionnaire', 'proprietaire_nom', p, false)}
+        ${prop('Type de propriétaire', 'proprietaire_type', p, false)}
+        ${prop('Décideur', 'decideur_nom', p, false)}
+        ${prop('Fonction', 'decideur_fonction', p, false)}
+        ${prop('Téléphone', 'telephone', p, false, 'tel')}
+        ${prop('Email', 'email', p, false, 'email')}
+      </div></details>` : ''}
 
       <h4>Notes</h4>
       <textarea class="notes" data-f="notes" rows="3" ${ed ? '' : 'disabled'} placeholder="Notes libres…">${esc(p.notes)}</textarea>
@@ -99,7 +112,9 @@ GA.panel = (function () {
       <h4>Photos et documents</h4>
       <div id="docs" class="docs"></div>
 
-      <h4>Historique des échanges <span class="muted small">${ex.length}</span></h4>
+      <div class="tabs-h"><button type="button" class="tab on" data-tab="ex">Échanges <span class="muted small">${ex.length}</span></button><button type="button" class="tab" data-tab="jr">Journal</button></div>
+      <div id="tab-jr" hidden><div class="muted small">Chargement…</div></div>
+      <div id="tab-ex">
       ${ed ? `<form class="composer" id="ex-form">
         <div class="ex-types">${GA.TYPES_ECHANGE.map(t => `<button type="button" class="chip ${t.key === exType ? 'on' : ''}" data-type="${t.key}"><span aria-hidden="true">${t.icon}</span> ${t.label}</button>`).join('')}
           <input type="date" id="ex-date" value="${GA.svc.today()}" aria-label="Date de l’échange"></div>
@@ -114,9 +129,15 @@ GA.panel = (function () {
           ${e.lat != null && e.lon != null ? `<a class="small" href="https://www.google.com/maps/search/?api=1&query=${+e.lat},${+e.lon}" target="_blank" rel="noopener" title="Position enregistrée${e.precision_m ? ' (± ' + e.precision_m + ' m)' : ''}">📍 position</a>` : ''}
           ${GA.perm.canDeleteExchange(me, p, e) ? `<button class="link small" data-delex="${e.id}">Supprimer</button>` : ''}</div>
           <div class="tl-c">${esc(e.commentaire)}</div><div class="tl-docs" data-exdocs="${esc(e.id)}"></div></div></li>`;
-      }).join('') : '<li class="muted">Aucun échange enregistré.</li>'}</ol>
+      }).join('') : '<li class="muted">Aucun échange enregistré.</li>'}</ol></div>
     </div>`;
     bind(p);
+    GA.pipeUI.bindActions(el(), p);
+    $$('[data-tab]', el()).forEach(b => b.addEventListener('click', async () => {
+      $$('[data-tab]', el()).forEach(x => x.classList.toggle('on', x === b));
+      $('#tab-ex').hidden = b.dataset.tab !== 'ex'; $('#tab-jr').hidden = b.dataset.tab !== 'jr';
+      if (b.dataset.tab === 'jr') { try { $('#tab-jr').innerHTML = GA.pipeUI.journalHtml(await GA.svc.listEvenements(p.id)); } catch (e) { $('#tab-jr').innerHTML = '<div class="muted small">' + esc(e.message) + '</div>'; } }
+    }));
     autosize();
     GA.docsView.mount($('#docs'), p, ed);
     GA.scoreView.bind($('#score-sec'), p, render);
@@ -155,6 +176,7 @@ GA.panel = (function () {
       const save = async () => {
         let v = inp.value;
         if (f === 'responsable_id' && !v) v = null;
+        if (inp.type === 'number') v = v === '' ? null : +v;
         const cur = p[f] == null ? '' : p[f];
         if ((v == null ? '' : v) === cur) return;
         const r = await run(() => GA.svc.updateProspect(p.id, { [f]: v }));
@@ -162,7 +184,7 @@ GA.panel = (function () {
           Object.assign(p, r);
           const u = $('#upd'); if (u) u.textContent = 'enregistré · mise à jour ' + fmtDateTime(r.updated_at);
           await GA.app.reload({ keepPanel: true });
-          if (['zone_id', 'responsable_id'].includes(f)) render();
+          if (['zone_id', 'responsable_id', 'typologie', 'modele_eco'].includes(f)) render();
         } else { inp.value = cur; }
       };
       if (inp.tagName === 'SELECT' || inp.type === 'date') inp.addEventListener('change', save);

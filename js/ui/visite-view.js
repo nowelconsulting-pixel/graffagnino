@@ -11,7 +11,7 @@ GA.visiteView = (function () {
 
   function open(prospectId) {
     const me = GA.auth.current();
-    const editables = GA.store.prospects.filter(p => GA.perm.canEditProspect(me, p) && !['refuse'].includes(p.statut));
+    const editables = GA.store.prospects.filter(p => GA.perm.canEditProspect(me, p) && GA.pipe.estOuvert(p));
     let pos = null, photos = [];
 
     const m = modal('Visite terrain', `
@@ -26,7 +26,7 @@ GA.visiteView = (function () {
         <div class="vt-photos" id="vt-photos"></div>
         <label class="btn block vt-cam"><input type="file" id="vt-file" accept="image/*" capture="environment" multiple hidden>📷 Prendre une photo</label>
         <div class="two">
-          <label class="fld"><span>Statut</span><select id="vt-statut">${GA.STATUTS.map(s => `<option value="${s.key}">${esc(s.label)}</option>`).join('')}</select></label>
+          <label class="fld"><span>Statut</span><select id="vt-statut">${GA.STATUTS.filter(s => s.ouvert).map(s => `<option value="${s.key}">${esc(s.label)}</option>`).join('')}</select></label>
           <label class="fld"><span>Prochaine relance</span><input id="vt-date" type="date" value="${plusJours(7)}"></label>
         </div>
         <label class="fld"><span>Prochaine action</span><input id="vt-next" placeholder="Ex. : envoyer la proposition au gérant"></label>
@@ -57,7 +57,7 @@ GA.visiteView = (function () {
       $('#vt-new', m.el).hidden = !isNew;
       if (isNew && !$('#vt-zone', m.el).value) $('#vt-zone', m.el).value = nearestZone();
       const p = GA.store.prospects.find(x => x.id === sel.value);
-      $('#vt-statut', m.el).value = p ? p.statut : 'a_prospecter';
+      $('#vt-statut', m.el).value = p ? p.statut : 'repere';
       if (p && !$('#vt-next', m.el).dataset.touched) $('#vt-next', m.el).value = '';
     }
     sel.addEventListener('change', onFiche);

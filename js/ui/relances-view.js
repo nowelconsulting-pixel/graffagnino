@@ -4,7 +4,7 @@ window.GA = window.GA || {};
 
 GA.relancesView = (function () {
   const { $, $$, esc, fmtDate, statutPill, avatar, zoneChip, run, modal } = GA.ui;
-  const CLOS = ['accord', 'refuse'];
+  const ouvert = p => GA.pipe.estOuvert(p);
   let who = null;   // 'me' | 'all'
   try { who = localStorage.getItem('ga.rel.who'); } catch (e) {}
 
@@ -13,13 +13,16 @@ GA.relancesView = (function () {
 
   function groups() {
     const today = GA.svc.today(), in7 = addDays(today, 7), me = GA.auth.current();
-    const list = GA.store.prospects.filter(p => !CLOS.includes(p.statut) && (who !== 'me' || p.responsable_id === me.id));
+    const list = GA.store.prospects.filter(p => ouvert(p) && (who !== 'me' || p.responsable_id === me.id));
+    const actifs = list.filter(p => !p.bloque);
     const by = (a, b) => (a.date_relance || '').localeCompare(b.date_relance || '') || a.nom.localeCompare(b.nom);
     return {
-      retard: list.filter(p => p.date_relance && p.date_relance < today).sort(by),
-      jour: list.filter(p => p.date_relance === today).sort(by),
-      semaine: list.filter(p => p.date_relance > today && p.date_relance <= in7).sort(by),
-      sans: list.filter(p => !p.date_relance).sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || '')),
+      retard: actifs.filter(p => p.date_relance && p.date_relance < today).sort(by),
+      jour: actifs.filter(p => p.date_relance === today).sort(by),
+      bloques: list.filter(p => GA.pipe.aReexaminer(p)).sort((a, b) => (a.reexamen_le || '').localeCompare(b.reexamen_le || '')),
+      semaine: actifs.filter(p => p.date_relance > today && p.date_relance <= in7).sort(by),
+      sansAction: actifs.filter(p => GA.pipe.sansAction(p)).sort((a, b) => GA.pipe.rangSignature(b) - GA.pipe.rangSignature(a)),
+      sans: actifs.filter(p => !p.date_relance && !GA.pipe.sansAction(p)).sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || '')),
     };
   }
 
@@ -31,17 +34,19 @@ GA.relancesView = (function () {
   function row(p, kind) {
     const me = GA.auth.current(), ed = GA.perm.canEditProspect(me, p), u = userById(p.responsable_id);
     const when = kind === 'retard' ? `<span class="late">${fmtDate(p.date_relance)} · ${late(p.date_relance)}</span>`
-      : kind === 'sans' ? '<span class="muted">Aucune date</span>' : fmtDate(p.date_relance);
+      : kind === 'bloques' ? `<span class="late">Bloqué · réexamen ${fmtDate(p.reexamen_le)}</span> · ${esc((GA.RAISONS_BLOCAGE.find(r => r.key === p.blocage_raison) || {}).label || '')}`
+      : (kind === 'sans' || kind === 'sansAction') ? '<span class="muted">Aucune date</span>' : fmtDate(p.date_relance);
     return `<div class="rel-row" data-id="${esc(p.id)}" tabindex="0">
       <div class="rel-main"><div class="rel-t"><b>${esc(p.nom)}</b> ${zoneChip(p.zone_id)} ${statutPill(p.statut)}</div>
         <div class="rel-n">${p.prochaine_action ? esc(p.prochaine_action) : '<span class="muted">Prochaine action non définie</span>'}</div>
         <div class="rel-m">${when} · ${avatar(u, 'sm')} ${u ? esc(u.nom) : '<span class="muted">Non attribuée</span>'}${p.commune ? ' · ' + esc(p.commune) : ''}</div></div>
-      ${ed ? `<div class="rel-a"><button class="btn primary" data-done>Fait</button>${kind !== 'sans' ? `<button class="btn" data-snooze="1">+1 j</button><button class="btn" data-snooze="7">+7 j</button>` : `<button class="btn" data-plan>Planifier</button>`}</div>` : ''}
+      ${ed ? `<div class="rel-a">${kind === 'bloques' ? '<button class="btn primary" data-debloquer>Réexaminer</button>'
+        : `<button class="btn primary" data-done>Fait</button>${(kind !== 'sans' && kind !== 'sansAction') ? `<button class="btn" data-snooze="1">+1 j</button><button class="btn" data-snooze="7">+7 j</button>` : `<button class="btn" data-plan>Planifier</button>`}`}</div>` : ''}
     </div>`;
   }
 
   function section(title, list, kind, emptyText) {
-    if (!list.length && kind === 'sans') return '';
+    if (!list.length && ['sans', 'bloques', 'sansAction'].includes(kind)) return '';
     return `<section class="rel-sec ${kind}"><h2>${title} <span class="kcount">${list.length}</span></h2>
       ${list.length ? list.map(p => row(p, kind)).join('') : `<div class="rel-empty">${emptyText}</div>`}</section>`;
   }
@@ -54,6 +59,8 @@ GA.relancesView = (function () {
     $('#rel-body').innerHTML =
       section('En retard', g.retard, 'retard', 'Aucune relance en retard.') +
       section('Aujourd’hui', g.jour, 'jour', 'Aucune relance prévue aujourd’hui.') +
+      section('Blocages à réexaminer', g.bloques, 'bloques', '') +
+      section('Dossiers sans prochaine action', g.sansAction, 'sansAction', '') +
       section('7 prochains jours', g.semaine, 'semaine', 'Rien de prévu cette semaine.') +
       section('Dossiers en cours sans date de relance', g.sans, 'sans', '');
     bind();
@@ -66,6 +73,7 @@ GA.relancesView = (function () {
       r.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.target.closest('button')) GA.app.openProspect(p.id); });
       const done = $('[data-done]', r); if (done) done.addEventListener('click', () => doneDialog(p, true));
       const plan = $('[data-plan]', r); if (plan) plan.addEventListener('click', () => doneDialog(p, false));
+      const deb = $('[data-debloquer]', r); if (deb) deb.addEventListener('click', () => GA.app.openProspect(p.id));
       $$('[data-snooze]', r).forEach(b => b.addEventListener('click', async () => {
         const base = p.date_relance && p.date_relance > GA.svc.today() ? p.date_relance : GA.svc.today();
         const d = addDays(base, +b.dataset.snooze);
@@ -83,7 +91,7 @@ GA.relancesView = (function () {
       <form id="rd-form" novalidate>
         ${withExchange ? `<div class="ex-types" id="rd-types">${GA.TYPES_ECHANGE.map(t => `<button type="button" class="chip ${t.key === type ? 'on' : ''}" data-type="${t.key}">${t.icon} ${t.label}</button>`).join('')}</div>
         <label class="fld"><span>Compte rendu *</span><textarea id="rd-text" rows="3" class="notes" placeholder="Ce qui a été fait, la réponse obtenue…"></textarea></label>` : ''}
-        <label class="fld"><span>Statut</span><select id="rd-statut">${GA.STATUTS.map(s => `<option value="${s.key}" ${s.key === p.statut ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
+        <p class="hint">Étape actuelle : <b>${esc(GA.pipe.etape(p.statut).label)}</b>. Pour changer d’étape, ouvrez la fiche (« → étape suivante »).</p>
         <label class="fld"><span>Prochaine action</span><input id="rd-next" value="${esc(withExchange ? '' : p.prochaine_action)}" placeholder="Ex. : rappeler pour fixer la visite"></label>
         <label class="fld"><span>Prochaine relance</span><input id="rd-date" type="date" value="${addDays(GA.svc.today(), 7)}"></label>
         <div class="quick">${quick.map(([n, l]) => `<button type="button" class="chip" data-add="${n}">${l}</button>`).join('')}<button type="button" class="chip" data-add="">Aucune</button></div>
@@ -96,7 +104,8 @@ GA.relancesView = (function () {
       e.preventDefault();
       const ok = await run(async () => {
         if (withExchange) await GA.svc.addExchange(p.id, { type, date: GA.svc.today(), commentaire: $('#rd-text', m.el).value });
-        return GA.svc.updateProspect(p.id, { statut: $('#rd-statut', m.el).value, prochaine_action: $('#rd-next', m.el).value, date_relance: $('#rd-date', m.el).value });
+        if (!$('#rd-next', m.el).value.trim()) throw new Error('Indiquez la prochaine action.');
+        return GA.svc.updateProspect(p.id, { prochaine_action: $('#rd-next', m.el).value, date_relance: $('#rd-date', m.el).value });
       }, withExchange ? 'Relance enregistrée' : 'Relance planifiée');
       if (ok) { m.close(); await GA.app.reload(); }
     });
@@ -106,7 +115,7 @@ GA.relancesView = (function () {
   function badge() {
     const el = $('#nav-relances'); const me = GA.auth.current(); if (!el || !me) return;
     const today = GA.svc.today();
-    const n = GA.store.prospects.filter(p => !CLOS.includes(p.statut) && p.responsable_id === me.id && p.date_relance && p.date_relance <= today).length;
+    const n = GA.store.prospects.filter(p => ouvert(p) && p.responsable_id === me.id && ((!p.bloque && p.date_relance && p.date_relance <= today) || GA.pipe.aReexaminer(p))).length;
     el.textContent = n; el.hidden = !n;
   }
 

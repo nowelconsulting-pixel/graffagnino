@@ -33,14 +33,41 @@ GA.moteur = (function () {
     concurrents: [],                                          // distributeurs de pizzas concurrents [{ nom, lat, lon }]
   };
   let reglages = null;
+  // Sites et concurrents : lus dans le Réseau et la table des concurrents (V2), sinon dans les réglages.
+  function sitesReseau() {
+    const s = (GA.store && GA.store.sites || []).filter(x => x.statut === 'en_service');
+    return s.map(x => ({ nom: x.nom, lat: x.lat, lon: x.lon, laboratoire: x.type === 'laboratoire', distributeur: x.type === 'distributeur', distance_max_km: +x.distance_max_km || 10 }));
+  }
   async function getReglages() {
-    if (reglages) return reglages;
-    reglages = JSON.parse(JSON.stringify(DEFAUT));
-    try {
-      const v = await GA.repo.getParametre('moteur');
-      if (v) reglages = Object.assign(reglages, v);
-    } catch (e) { /* table absente : valeurs par défaut */ }
-    return reglages;
+    if (!reglages) {
+      reglages = JSON.parse(JSON.stringify(DEFAUT));
+      try {
+        const v = await GA.repo.getParametre('moteur');
+        if (v) reglages = Object.assign(reglages, v);
+      } catch (e) { /* table absente : valeurs par défaut */ }
+    }
+    const r = Object.assign({}, reglages);
+    const s = sitesReseau(); if (s.length) r.sites = s;
+    const conc = (GA.store && GA.store.concurrents || []).filter(c => c.type === 'distributeur').map(c => ({ nom: c.nom, lat: c.lat, lon: c.lon }));
+    r.concurrents = (reglages.concurrents || []).concat(conc);
+    return r;
+  }
+  function reglagesSync() { const r = Object.assign({}, reglages || DEFAUT); const s = sitesReseau(); if (s.length) r.sites = s; return r; }
+  // Malus de proximité d'un de nos distributeurs en service, calculé avec le réseau actuel.
+  function malusProximite(lat, lon) {
+    const R = reglagesSync();
+    const d = R.sites.filter(s => s.distributeur).map(s => ({ s, d: dist(lat, lon, s.lat, s.lon) })).sort((a, b) => a.d - b.d)[0];
+    if (!d) return [];
+    const regle = (R.proximite || []).slice().sort((a, b) => a.km - b.km).find(x => d.d < x.km * 1000);
+    return regle ? [{ lab: `Distributeur existant à ${km1(d.d)} (${d.s.nom})`, pts: regle.pts }] : [];
+  }
+  // Note recalculée avec le profil de pondération d'une typologie (mêmes critères, autres poids).
+  function scoreProfil(a, typo) {
+    if (!a || !a.det || a.v < 2) return a ? a.score : null;
+    const w = GA.PROFILS[typo] || GA.PROFILS.general;
+    let s = 0, poids = 0;
+    for (const d of a.det) { if (d.pts == null || !(d.k in w)) continue; s += w[d.k] * d.pts / d.mx; poids += w[d.k]; }
+    return poids ? Math.round(100 * s / poids) : a.score;
   }
   async function setReglages(v) { await GA.repo.setParametre('moteur', v); reglages = Object.assign(JSON.parse(JSON.stringify(DEFAUT)), v); }
 
@@ -392,7 +419,7 @@ GA.moteur = (function () {
     let best = null;
     for (const s of labos) {
       const d = await getJson(`${NAV}/itineraire?resource=bdtopo-valhalla&profile=car&optimization=shortest&start=${s.lon},${s.lat}&end=${lon},${lat}&distanceUnit=kilometer&timeUnit=minute&getSteps=false&geometryFormat=geojson`);
-      if (!best || d.distance < best.km) best = { site: s.nom, km: +d.distance.toFixed(2), min: Math.round(d.duration) };
+      if (!best || d.distance < best.km) best = { site: s.nom, km: +d.distance.toFixed(2), min: Math.round(d.duration), max: s.distance_max_km || R.distanceMaxKm };
     }
     return best;
   }
@@ -429,7 +456,7 @@ GA.moteur = (function () {
       v: VERSION, date: new Date().toISOString(), lat: +lat.toFixed(6), lon: +lon.toFixed(6),
       det, brut, couverture, score: couverture ? Math.round(brut / couverture * 100) : 0,
       lo: brut, hi: Math.min(100, brut + manquants), labo, distanceMaxKm: R.distanceMaxKm,
-      conforme: labo ? labo.km <= R.distanceMaxKm : null, alerte: labo ? Math.abs(labo.km - R.distanceMaxKm) <= 0.5 : false,
+      conforme: labo ? labo.km <= (labo.max || R.distanceMaxKm) : null, alerte: labo ? Math.abs(labo.km - (labo.max || R.distanceMaxKm)) <= 0.5 : false,
       malus, ind,
     };
   }
@@ -444,12 +471,15 @@ GA.moteur = (function () {
     return Object.entries(TERRAIN).map(([k, c]) => p && p[k] && c.options[p[k]] ? { lab: c.lab + ' : ' + c.options[p[k]][0].toLowerCase(), pts: c.options[p[k]][1] } : null).filter(Boolean);
   }
 
-  // Score final = score (sur 100, données connues) + malus de proximité + bonus / malus terrain, borné 0–100.
-  function scoreFinal(a, p) {
+  // Score final = score du profil de la typologie (sur 100, données connues) + malus de proximité du réseau actuel
+  // + bonus / malus terrain, borné 0–100. Ce n'est pas une probabilité : c'est le potentiel géographique.
+  function scoreFinal(a, p, typo) {
     if (!a) return null;
-    const ajust = [...(a.malus || []), ...terrain(p)];
-    const total = Math.max(0, Math.min(100, a.score + ajust.reduce((t, x) => t + x.pts, 0)));
-    return { total, ajust, priorite: total >= 60 ? 1 : total >= 45 ? 2 : 3 };
+    const base = typo ? scoreProfil(a, typo) : a.score;
+    const malus = a.lat != null ? malusProximite(a.lat, a.lon) : (a.malus || []);
+    const ajust = [...malus, ...terrain(p)];
+    const total = Math.max(0, Math.min(100, base + ajust.reduce((t, x) => t + x.pts, 0)));
+    return { total, base, ajust, priorite: total >= 60 ? 1 : total >= 45 ? 2 : 3, profil: typo && GA.PROFILS[typo] ? typo : 'general' };
   }
 
   // Résultat équivalent pour une zone de l'étude du 25/11 (score figé de la carte, ancien barème).
@@ -457,5 +487,6 @@ GA.moteur = (function () {
     return { etude: true, score: z.sc, lo: z.lo, hi: z.hi, couverture: z.cov, labo: { km: z.vd, site: 'Laboratoire' }, conforme: z.conf, alerte: z.alert, malus: [], date: '2026-11-25' };
   }
 
-  return { analyser, scoreFinal, depuisZone, getReglages, setReglages, TERRAIN, DEFAUT, inGeom, VERSION, ouvertLeSoir };
+  return { analyser, scoreFinal, scoreProfil, malusProximite, depuisZone, getReglages, setReglages, TERRAIN, DEFAUT, inGeom, VERSION,
+    ouvertLeSoir, ouvertApres, overpass, sirene, getJson, loadOpt, aire, segDist, bbox, MILIEU, GRANDES_SURFACES, DEPS_CARREAUX };
 })();

@@ -6,7 +6,12 @@ window.GA = window.GA || {};
 GA.createSupabaseRepository = function (client) {
   // Champs texte d'une fiche renvoyés '' plutôt que null, comme l'attend l'interface.
   const TEXTES = ['zone_id', 'adresse', 'commune', 'proprietaire_nom', 'proprietaire_type', 'decideur_nom',
-    'decideur_fonction', 'telephone', 'email', 'prochaine_action', 'date_relance', 'notes'];
+    'decideur_fonction', 'telephone', 'email', 'prochaine_action', 'date_relance', 'notes', 'reexamen_le', 'date_accord',
+    'date_signature', 'date_installation', 'blocage_raison', 'blocage_precision', 'motif_abandon_precision', 'modele_eco',
+    'montant_unite', 'electricite', 'emplacement_precis', 'conditions_particulieres', 'typologie'];
+  // Colonnes date, identifiant ou nombre : une valeur vide est enregistrée comme null.
+  const NULLABLES = ['date_relance', 'zone_id', 'responsable_id', 'reexamen_le', 'date_accord', 'date_signature', 'date_installation',
+    'secteur_id', 'objectif_id', 'lieu_id', 'motif_abandon', 'statut_avant_abandon', 'montant', 'duree_mois'];
   const PROFIL = ['nom', 'fonction', 'telephone', 'role', 'actif'];
   const BUCKET = 'documents';
   const MOTEUR_ABSENT = 'Moteur de score pas encore activé : exécutez supabase/004_moteur.sql dans Supabase.';
@@ -21,7 +26,7 @@ GA.createSupabaseRepository = function (client) {
   // Valeurs vides → null pour les colonnes date, zone et responsable.
   function toDb(d) {
     const o = { ...d };
-    for (const k of ['date_relance', 'zone_id', 'responsable_id']) if (k in o && !o[k]) o[k] = null;
+    for (const k of NULLABLES) if (k in o && (o[k] === '' || o[k] === undefined)) o[k] = null;
     delete o.id; delete o.created_at; delete o.updated_at;
     return o;
   }
@@ -34,6 +39,10 @@ GA.createSupabaseRepository = function (client) {
     if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Connexion au serveur impossible. Vérifiez votre connexion internet.';
     if (/jwt expired|invalid jwt/i.test(m)) return 'Votre session a expiré : reconnectez-vous.';
     if (/'(analyse|terrain_\w+)' column|column .*\b(analyse|terrain_\w+)\b/i.test(m)) return 'Moteur de score pas encore activé : exécutez supabase/004_moteur.sql dans Supabase.';
+    if (/could not find the table|relation .* does not exist|schema cache/i.test(m)) return 'Base de données à mettre à jour : exécutez supabase/006_v2_crm_sourcing.sql dans Supabase.';
+    if (/prospects_abandon_motif/.test(m)) return 'Choisissez un motif d’abandon.';
+    if (/contacts_un_principal/.test(m)) return 'Il y a déjà un contact principal sur cette fiche.';
+    if (/duplicate key/.test(m)) return 'Cet élément existe déjà.';
     if (/'(lat|lon)' column|column .*\b(lat|lon)\b/i.test(m)) return 'Position des fiches pas encore activée : exécutez supabase/003_position_fiches.sql dans Supabase.';
     return m;
   }
@@ -104,6 +113,34 @@ GA.createSupabaseRepository = function (client) {
     async deleteExchange(id) {
       const rows = await q(client.from('exchanges').delete().eq('id', id).select('id'));
       if (!rows.length) throw new Error('Action non autorisée ou échange introuvable.');
+    },
+
+    /* ---- Tables V2 (contacts, journal, réseau, secteurs, objectifs, sourcing) : accès générique ---- */
+    async schemaVersion() {
+      const { data, error } = await client.from('parametres').select('valeur').eq('cle', 'schema_version').maybeSingle();
+      if (error) return 0;
+      return data ? +data.valeur || 0 : 0;
+    },
+    async lister(table, { eq, order, asc } = {}) {
+      let req = client.from(table).select('*');
+      if (eq) for (const [k, v] of Object.entries(eq)) req = req.eq(k, v);
+      if (order) req = req.order(order, { ascending: !!asc });
+      return q(req);
+    },
+    async inserer(table, row) { return one(await q(client.from(table).insert(toDb(row)).select())); },
+    async modifier(table, id, patch, cle = 'id') { return one(await q(client.from(table).update(toDb(patch)).eq(cle, id).select())); },
+    async supprimer(table, id, cle = 'id') {
+      const rows = await q(client.from(table).delete().eq(cle, id).select());
+      if (!rows.length) throw new Error('Action non autorisée ou élément introuvable.');
+    },
+    async upserter(table, rows, onConflict) {
+      if (!rows.length) return [];
+      return q(client.from(table).upsert(rows.map(toDb), { onConflict }).select());
+    },
+    async supprimerLien(table, filtres) {
+      let req = client.from(table).delete();
+      for (const [k, v] of Object.entries(filtres)) req = req.eq(k, v);
+      return q(req.select());
     },
 
     /* ---- Réglages partagés (table parametres) ---- */

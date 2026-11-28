@@ -33,11 +33,11 @@ GA.scoreView = (function () {
   }
 
   function resume(a, p) {
-    const f = GA.moteur.scoreFinal(a, p);
+    const f = GA.moteur.scoreFinal(a, p, p && p.typologie);
     const labo = a.labo ? `${String(a.labo.km).replace('.', ',')} km par la route${a.labo.min != null ? ' · ' + a.labo.min + ' min' : ''}` : 'distance non calculée';
     const conf = a.conforme == null ? '' : a.conforme ? `<span class="tag ok">≤ ${a.distanceMaxKm || 10} km du laboratoire</span>` : `<span class="tag out">au-delà de ${a.distanceMaxKm || 10} km</span>`;
     return `<div class="score-head">${badge(f.total, f.priorite)}
-      <div class="score-meta"><div>Score de base <b>${a.score}</b> (fourchette ${a.lo}–${a.hi})${f.ajust.length ? ' · ' + f.ajust.map(x => `${x.pts > 0 ? '+' : ''}${x.pts} ${esc(x.lab)}`).join(' · ') : ''}</div>
+      <div class="score-meta"><div>Score de base <b>${f.base}</b>${f.profil !== 'general' ? ' (profil « ' + esc((GA.TYPOLOGIES.find(x => x.key === f.profil) || {}).label || f.profil) + ' »)' : ''} · fourchette ${a.lo}–${a.hi}${f.ajust.length ? ' · ' + f.ajust.map(x => `${x.pts > 0 ? '+' : ''}${x.pts} ${esc(x.lab)}`).join(' · ') : ''}</div>
       <div class="muted small">${labo} ${conf}${a.alerte ? ' <span class="tag warn">à remesurer</span>' : ''} · calculé le ${fmtDate(a.date)}${a.v < 2 ? ' · <span class="tag warn">ancien barème</span>' : ''}</div>
       ${a.ind && a.ind.reseau && !a.ind.reseau.ok ? `<div class="small danger-t">${esc(a.ind.reseau.texte)}</div>` : ''}
       ${a.ind && a.ind.urbanisme && /^[AN]/.test(a.ind.urbanisme.type || '') ? `<div class="small danger-t">Urbanisme : ${esc(a.ind.urbanisme.texte)}</div>` : ''}</div></div>`;
