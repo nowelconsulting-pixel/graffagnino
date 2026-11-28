@@ -1,6 +1,6 @@
 /* Onglet Opportunités : classement dynamique des 57 zones de l'étude et des emplacements repérés (fiches),
    avec le même barème ; analyse en direct de n'importe quelle adresse (ailleurs en France aussi) ;
-   réglages du moteur (sites, distance maximale, malus de proximité). */
+   réglages du moteur : Administration › Réglages et Réseau. */
 window.GA = window.GA || {};
 
 GA.opportunitesView = (function () {
@@ -82,7 +82,7 @@ GA.opportunitesView = (function () {
     $('#opp-conf').addEventListener('change', e => { st.conformes = e.target.checked; render(); });
     const all = $('#opp-all'); if (all) all.addEventListener('click', () => calcAll(all));
     $('#opp-addr').addEventListener('click', analyseAdresse);
-    const set = $('#opp-set'); if (set) set.addEventListener('click', reglages);
+    const set = $('#opp-set'); if (set) set.addEventListener('click', () => GA.adminView.ouvrir('reglages'));
     $$('#opp-body tr[data-i]').forEach(tr => {
       const l = list[+tr.dataset.i];
       $$('[data-act]', tr).forEach(b => b.addEventListener('click', () => action(l, b.dataset.act, b)));
@@ -135,41 +135,6 @@ GA.opportunitesView = (function () {
         const p = await run(() => GA.svc.createProspect({ nom: out.f.properties.label, adresse: out.f.properties.name || '', commune: out.f.properties.city || '', lat: out.lat, lon: out.lon, analyse: out.a }), 'Fiche créée');
         if (p) { m.close(); await GA.app.reload(); GA.app.openProspect(p.id); }
       });
-    });
-  }
-
-  // Réglages partagés du moteur (administrateurs) : sites, distance maximale, malus de proximité.
-  async function reglages() {
-    const r = JSON.parse(JSON.stringify(await GA.moteur.getReglages()));
-    const m = modal('Réglages du moteur', `<form id="rg-form" class="reglages">
-      <b>Vos sites</b><span class="muted small">Laboratoire : sert au calcul de la distance par la route. Distributeur : applique le malus de proximité aux emplacements voisins.</span>
-      <div id="rg-sites"></div>
-      <div class="fc-search"><input id="rg-q" placeholder="Ajouter un site : adresse du 2e distributeur, d’un nouveau laboratoire…"><button type="button" class="btn" id="rg-add">Ajouter</button></div>
-      <label class="tfld"><span>Distance maximale par la route depuis le laboratoire (km)</span><input id="rg-max" type="number" step="0.5" min="1" value="${r.distanceMaxKm}"></label>
-      <label class="tfld"><span>Malus si un distributeur est à moins de (km / points)</span><span><input id="rg-k1" type="number" step="0.5" style="width:70px" value="${r.proximite[0] ? r.proximite[0].km : 1.5}"> km → <input id="rg-p1" type="number" style="width:70px" value="${r.proximite[0] ? r.proximite[0].pts : -10}"> pts</span></label>
-      <label class="tfld"><span>… et à moins de</span><span><input id="rg-k2" type="number" step="0.5" style="width:70px" value="${r.proximite[1] ? r.proximite[1].km : 3}"> km → <input id="rg-p2" type="number" style="width:70px" value="${r.proximite[1] ? r.proximite[1].pts : -5}"> pts</span></label>
-      <div class="modal-actions"><button type="button" class="btn" data-close>Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div></form>`, { wide: true });
-    const draw = () => {
-      $('#rg-sites', m.el).innerHTML = r.sites.map((s, i) => `<div class="site"><input data-k="nom" data-i="${i}" value="${esc(s.nom)}">
-        <span class="muted small">${s.lat.toFixed(4)}</span><span class="muted small">${s.lon.toFixed(4)}</span>
-        <label class="chk"><input type="checkbox" data-k="laboratoire" data-i="${i}" ${s.laboratoire ? 'checked' : ''}> Laboratoire</label>
-        <label class="chk"><input type="checkbox" data-k="distributeur" data-i="${i}" ${s.distributeur ? 'checked' : ''}> Distributeur</label>
-        <button type="button" class="icon-btn" data-rm="${i}" aria-label="Retirer">✕</button></div>`).join('');
-      $$('#rg-sites [data-k]', m.el).forEach(x => x.addEventListener('change', () => { const s = r.sites[+x.dataset.i]; s[x.dataset.k] = x.type === 'checkbox' ? x.checked : x.value; }));
-      $$('#rg-sites [data-rm]', m.el).forEach(x => x.addEventListener('click', () => { r.sites.splice(+x.dataset.rm, 1); draw(); }));
-    };
-    draw();
-    $('#rg-add', m.el).addEventListener('click', async () => {
-      const q = $('#rg-q', m.el).value.trim(); if (!q) return;
-      const f = await run(async () => { const d = await (await fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(q))).json(); if (!d.features || !d.features[0]) throw new Error('Adresse introuvable.'); return d.features[0]; });
-      if (f) { r.sites.push({ nom: f.properties.label, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], laboratoire: false, distributeur: true }); $('#rg-q', m.el).value = ''; draw(); }
-    });
-    $('#rg-form', m.el).addEventListener('submit', async e => {
-      e.preventDefault();
-      r.distanceMaxKm = +$('#rg-max', m.el).value || 10;
-      r.proximite = [{ km: +$('#rg-k1', m.el).value, pts: +$('#rg-p1', m.el).value }, { km: +$('#rg-k2', m.el).value, pts: +$('#rg-p2', m.el).value }].filter(x => x.km > 0);
-      if (!r.sites.some(s => s.laboratoire)) { GA.ui.toast('Gardez au moins un laboratoire.', 'err'); return; }
-      if (await run(() => GA.moteur.setReglages(r).then(() => true), 'Réglages enregistrés')) { m.close(); render(); }
     });
   }
 
