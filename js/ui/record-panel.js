@@ -77,6 +77,9 @@ GA.panel = (function () {
 
       <h4>Potentiel de l’emplacement</h4>
       <div id="score-sec">${GA.scoreView.section(p, ed)}</div>
+      ${p.analyse_entree && p.analyse_entree.dims ? `<details class="ancien"><summary>Origine : étude de sourcing du ${GA.ui.fmtDate(p.analyse_entree.date)} (pré-score ${Math.round(p.analyse_entree.prescore)}/100)</summary>
+        <ul class="small">${[['Logistique', 'logistique'], ['Technique', 'technique'], ['Commercial', 'commercial'], ['Information', 'information']].map(([l, k]) => p.analyse_entree.dims[k] ? `<li><b>${l}</b> : ${esc(p.analyse_entree.dims[k].texte || '')}</li>` : '').join('')}</ul>
+        ${p.analyse_entree.raison ? `<p class="small muted">${esc(p.analyse_entree.raison)}</p>` : ''}</details>` : ''}
 
       ${GA.pipeUI.conditionsHtml(p, ed)}
       <h4>Jalons</h4>

@@ -358,7 +358,8 @@ tr.inactive td{color:var(--grey)}
 .jalon input{border:1px solid var(--line);border-radius:5px;padding:2px 4px;font-size:12px}
 .two-inline{display:flex;gap:6px}
 .two-inline>*{flex:1}
-.tabs-h{display:flex;gap:4px;margin:22px 0 8px;border-bottom:1px solid var(--line)}
+.tabs-h{display:flex;gap:4px;margin:22px 0 8px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs-h .tab{flex:0 0 auto;white-space:nowrap}
 .tab{border:0;background:none;padding:6px 10px;cursor:pointer;color:var(--mute);border-bottom:2px solid transparent;font:inherit;font-weight:600}
 .tab.on{color:var(--ink);border-bottom-color:var(--brand)}
 .journal{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:13px}

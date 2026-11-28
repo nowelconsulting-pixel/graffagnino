@@ -1,6 +1,8 @@
 # GRAFFAGNINO · Prospection
 
-Application de prospection des emplacements : carte des 57 zones, CRM des emplacements, entreprises par zone, administration des utilisateurs.
+Outil de développement commercial des distributeurs GRAFFAGNINO : trouver les meilleurs emplacements (études de sourcing,
+carte historique des 57 zones, moteur de score), identifier les interlocuteurs, organiser les actions et piloter les négociations
+jusqu'à la signature puis l'installation.
 
 - **En ligne :** https://grafftothemoon.netlify.app (Netlify, mise en ligne automatique à chaque push sur `main`).
 - **Données et comptes :** Supabase (base PostgreSQL, Supabase Auth, règles de sécurité par ligne).
@@ -16,7 +18,11 @@ L'inscription libre est désactivée dans Supabase.
 
 Dans Supabase, **SQL Editor → New query**, coller le contenu de `supabase/schema.sql`, puis **Run**.
 Puis exécuter de la même façon `supabase/002_documents_visites.sql` (photos, documents, position GPS des visites)
-`supabase/003_position_fiches.sql` (position des fiches sur la carte) et `supabase/004_moteur.sql` (score des emplacements, réglages du moteur) et `supabase/005_suppression_fiches.sql` (suppression par le responsable de la fiche).
+`supabase/003_position_fiches.sql` (position des fiches sur la carte) et `supabase/004_moteur.sql` (score des emplacements, réglages du moteur) et `supabase/005_suppression_fiches.sql` (suppression par le responsable de la fiche),
+puis `supabase/006_v2_crm_sourcing.sql` (V2 : pipeline commercial, interlocuteurs, journal, réseau, objectifs, sourcing).
+006 sauvegarde d'abord les tables existantes dans le schéma `sauvegarde_v1`, convertit les anciens statuts sans perte et vérifie le résultat ;
+il peut être relancé sans risque. Retour arrière : `supabase/006_retour_arriere.sql` (les nouvelles tables sont conservées).
+Tant que 006 n'est pas exécuté, l'application affiche un écran « Mise à jour de la base nécessaire ».
 Nommer ensuite le premier administrateur :
 
 ```sql
@@ -44,7 +50,9 @@ data/antennes-4g.json         antennes 4G / 5G des opérateurs (généré)
 data/zones-v2.json            les 57 zones calculées avec le moteur v2 (généré)
 js/services/auth.js           connexion (Supabase Auth)
 js/services/permissions.js    droits administrateur / utilisateur
-js/services/prospects.js      logique métier : fiches, statuts, échanges, utilisateurs
+js/services/prospects.js      logique métier : dossiers, étapes, interlocuteurs, échanges, réseau, référentiels
+js/services/pipeline.js       règles du pipeline : conditions d'étape, avancement, potentiel, matrice, alertes
+js/services/sourcing.js       moteur de sourcing : détection, fusion, pré-score, dimensions, acteurs, passage au CRM
 js/services/entreprises.js    entreprises autour d'une zone (API Recherche d'entreprises)
 js/services/export-xlsx.js    export Excel (.xlsx) sans bibliothèque
 js/services/images.js         réduction des photos avant envoi
@@ -55,6 +63,8 @@ supabase/schema.sql           tables, déclencheurs et règles de sécurité de 
 supabase/002_documents_visites.sql  documents, stockage privé, position GPS des échanges
 supabase/003_position_fiches.sql    position des fiches
 supabase/004_moteur.sql             score des fiches, évaluation terrain, réglages du moteur
+supabase/006_v2_crm_sourcing.sql    V2 (sauvegarde, migration des statuts, contacts, journal, réseau, objectifs, sourcing)
+supabase/006_retour_arriere.sql     retour aux statuts V1 si nécessaire
 tools/make_zones.py           régénère js/data/zones.js depuis la carte
 tools/bundle.py               produit la version en un seul fichier
 tools/make_parcelles.py       régénère data/parcelles-pm/ depuis le fichier DGFiP
@@ -63,11 +73,48 @@ tools/make_carreaux.py, make_bpe.py, make_parkings.py, make_antennes.py, make_ga
 
 L'interface n'accède aux données que par `GA.repo`. La clé publique Supabase de `js/config.js` est faite pour être visible : sans compte connecté et actif, les règles de sécurité de la base ne donnent accès à rien. La clé secrète (service_role) ne doit jamais apparaître dans le dépôt.
 
-## Relances, tableau de bord, export
+## Pipeline commercial (V2)
 
-- **Relances :** dossiers en retard, du jour, des 7 prochains jours, et dossiers en cours sans date. « Fait » enregistre l'échange et programme la suite ; « +1 j » / « +7 j » reportent. La pastille rouge du menu compte mes relances en retard ou du jour.
-- **Tableau de bord :** fiches par statut, par responsable et par zone ; taux de transformation = accords / dossiers clos (accords + refus).
-- **Export Excel :** bouton « Exporter Excel » (CRM ou tableau de bord) : fiches, échanges et utilisateurs dans un classeur .xlsx, qui sert aussi de sauvegarde.
+Étapes : Repéré → Qualifié → Interlocuteur identifié → En discussion → Négociation → Accord → Signé → Installé, et Abandonné.
+Signé et Installé sont distincts : un site ne rejoint le réseau (et ne pénalise ses voisins) qu'une fois installé.
+
+- **Changer d'étape** passe par une fenêtre qui exige la prochaine action et propose une date de relance (modifiable).
+  Conditions d'entrée : position ou zone dès « Qualifié », un contact joignable dès « Interlocuteur identifié », un contact principal dès « En discussion ».
+- **Interlocuteurs :** plusieurs par dossier (fonction, entreprise, coordonnées, rôle, pouvoir de décision, intérêt), un seul principal.
+- **Blocage :** raison + date de réexamen ; le dossier revient dans les relances à cette date. **Abandon :** motif obligatoire, dossier réouvrable.
+- **Conditions :** modèle économique, montant, durée, électricité, emplacement précis ; échange de type « Proposition ». **Jalons :** accord, signature, installation.
+- **Journal automatique** (base de données, non modifiable) distinct des échanges saisis : création, étapes, responsable, blocages, contacts, conditions.
+- **Matrice de priorisation :** potentiel de l'emplacement (seuil 60 réglable) × avancement du dossier (en discussion ou au-delà, contact principal intéressé,
+  avec pouvoir de décision, sans blocage) → À signer en priorité, Opportunité à saisir, À débloquer, En réserve. Les deux mesures ne sont jamais additionnées
+  et l'application ne calcule aucune probabilité de signature.
+
+## Tableau de bord, relances, export
+
+- **Tableau de bord :** objectif commercial (signatures / cible, date repère informative), actions du jour (retards, blocages à réexaminer,
+  dossiers sans prochaine action, immobiles, sans interlocuteur), matrice, pipeline par étape et motifs d'abandon, activité par responsable, zones, réseau.
+- **Relances :** en retard, aujourd'hui, blocages à réexaminer, dossiers sans prochaine action, 7 prochains jours, sans date.
+- **Export Excel :** dossiers, interlocuteurs, échanges, réseau et utilisateurs dans un classeur .xlsx, qui sert aussi de sauvegarde.
+
+## Études de sourcing (Opportunités)
+
+Une étude part d'un laboratoire (ou d'une adresse) et d'un rayon, et recherche les lieux candidats par typologie : supermarchés, stations-service,
+gares, centres commerciaux, parkings, loisirs, hôtels.
+
+1. **Détection :** OpenStreetMap (Overpass), prix des carburants (data.economie.gouv.fr, source officielle), gares SNCF et parkings BNLS (fichiers `data/`).
+2. **Fusion** des doublons et **niveau de preuve** : A source officielle, B OpenStreetMap nommé, C OpenStreetMap sans nom, D hypothèse.
+3. **Pré-score local** (habitants à 800 m 35, flux propre au lieu 30, commerces et services à 400 m 20, concurrence pizza à 1 km 15, puis malus réseau).
+4. **Analyse complète** (moteur v2, distance par la route) des N meilleurs lieux livrables.
+5. **Cinq dimensions séparées :** potentiel géographique, faisabilité logistique, technique, commerciale, qualité de l'information.
+
+Chaque lieu peut être retenu, mis en attente ou écarté (motif), comparé à d'autres, affiché sur la carte. « Identifier les acteurs » cherche
+l'exploitant (SIRENE), le propriétaire de la parcelle (cadastre + DGFiP personnes morales) et la commune, avec un niveau de certitude.
+« Retenir et créer le dossier CRM » crée le dossier positionné, avec son analyse d'entrée et les acteurs comme interlocuteurs « à confirmer ».
+Les études sont conservées : une nouvelle étude du même territoire signale les lieux nouveaux.
+
+## Administration
+
+Utilisateurs · **Réseau** (laboratoires avec distance maximale de livraison, distributeurs en service / suspendus / retirés / projets) ·
+**Secteurs et objectifs** (cible de signatures, date repère facultative) · **Concurrents** relevés · **Réglages** (seuils du pipeline, malus de proximité).
 
 ## Moteur de score (barème v2) et onglet Opportunités
 
@@ -136,4 +183,4 @@ Source : API publique [Recherche d'entreprises](https://recherche-entreprises.ap
 ## Droits
 
 - **Administrateur :** tous les espaces, gestion des utilisateurs, toutes les fiches (modification, attribution, suppression).
-- **Utilisateur :** carte et CRM. Il voit toutes les fiches. Il modifie celles dont il est responsable et celles qui ne sont pas attribuées. Il crée des fiches, dont il devient responsable, et supprime les fiches dont il est responsable.
+- **Utilisateur :** carte, sourcing et CRM. Il voit toutes les fiches. Il modifie celles dont il est responsable et celles qui ne sont pas attribuées. Il crée des fiches, dont il devient responsable, et supprime les fiches dont il est responsable.
